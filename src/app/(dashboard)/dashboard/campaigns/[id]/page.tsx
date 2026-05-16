@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ChevronLeft,
   Calendar,
+  FileDown,
   Image as ImageIcon,
   Globe,
   Rocket,
@@ -48,6 +49,8 @@ export default function CampaignDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [addingKind, setAddingKind] = useState<AssetKind | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch<MeResponse>("/api/me")
@@ -206,6 +209,42 @@ export default function CampaignDetailPage() {
     }
   }
 
+  async function downloadReport(format: "md" | "html") {
+    setGeneratingReport(true);
+    setReportError(null);
+    try {
+      const res = await fetch(
+        `/api/campaigns/${id}/report?format=${format}`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          (body as { error?: string }).error ??
+            `Report failed (${res.status})`,
+        );
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="([^"]+)"/);
+      const filename =
+        match?.[1] ??
+        `soloscale-report-${id.slice(0, 8)}.${format === "html" ? "html" : "md"}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setReportError(
+        err instanceof Error ? err.message : "Failed to generate report",
+      );
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
+
   if (error) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center text-center">
@@ -242,12 +281,42 @@ export default function CampaignDetailPage() {
       </button>
 
       <header className="border-b border-zinc-200 pb-8">
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-xs font-medium uppercase tracking-wider text-violet-600">
-            Campaign topic
-          </p>
-          <StatusBadge status={campaign.status} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-violet-600">
+              Campaign topic
+            </p>
+            <StatusBadge status={campaign.status} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={generatingReport}
+              leftIcon={
+                generatingReport ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <FileDown className="h-3.5 w-3.5" />
+                )
+              }
+              onClick={() => downloadReport("md")}
+            >
+              Report (.md)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={generatingReport}
+              onClick={() => downloadReport("html")}
+            >
+              Report (.html)
+            </Button>
+          </div>
         </div>
+        {reportError ? (
+          <p className="mt-3 text-sm text-red-600">{reportError}</p>
+        ) : null}
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
           {campaign.title}
         </h1>
