@@ -48,7 +48,7 @@ export function AuthVideoBackground({ variant = "dark" }: Props) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-zinc-950"
+      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-zinc-950"
     >
       {mounted && (
         <iframe

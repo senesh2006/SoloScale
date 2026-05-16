@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AuthVideoBackground } from "@/components/layout/AuthVideoBackground";
+import { MovingGradientBackground } from "@/components/layout/MovingGradientBackground";
 import {
   ArrowRight,
   Sparkles,
@@ -40,7 +41,15 @@ const features = [
 export default function Home() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-white text-zinc-950">
-      <AuthVideoBackground variant="light" />
+      <MovingGradientBackground variant="light" />
+
+      {/* Animated aurora background */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-40 -z-10 flex justify-center"
+      >
+        <div className="aurora-blob h-[500px] w-[800px] rounded-full" />
+      </div>
 
       {/* Subtle dot grid */}
       <div

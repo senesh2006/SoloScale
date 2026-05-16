@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Sparkles, Check } from "lucide-react";
-import { AuthVideoBackground } from "@/components/layout/AuthVideoBackground";
+import { MovingGradientBackground } from "@/components/layout/MovingGradientBackground";
 
 type Props = {
   title: string;
@@ -55,7 +55,7 @@ export function AuthShell({ title, subtitle, children, footer }: Props) {
 
       {/* Marketing side */}
       <div className="relative hidden overflow-hidden bg-zinc-950 text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <AuthVideoBackground variant="dark" />
+        <MovingGradientBackground variant="dark" />
 
         <div className="relative">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur">
