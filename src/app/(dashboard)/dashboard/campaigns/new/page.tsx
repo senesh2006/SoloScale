@@ -231,10 +231,8 @@ function AllInOneForm({
 }: {
   router: ReturnType<typeof useRouter>;
 }) {
-  const [title, setTitle] = useState("React Workshop Campaign");
-  const [goal, setGoal] = useState(
-    "I'm hosting a virtual workshop on React on Friday. Build my campaign.",
-  );
+  const [title, setTitle] = useState("");
+  const [goal, setGoal] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [audience, setAudience] = useState("");
   const [loading, setLoading] = useState(false);

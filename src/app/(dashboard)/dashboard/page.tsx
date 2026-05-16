@@ -32,9 +32,37 @@ type Stat = {
   accent: string;
 };
 
+type DashboardSummary = {
+  total_campaigns: number;
+  active_campaigns: number;
+  live_campaigns: number;
+  total_attendees: number;
+  scheduled_this_week: number;
+};
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+type MeResponse = {
+  uid: string;
+  user: { name?: string | null; email?: string | null } | null;
+};
+
+function firstName(me: MeResponse | null): string {
+  const name = me?.user?.name?.trim();
+  if (name) return name.split(/\s+/)[0];
+  return "there";
+}
+
 export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
   const [calendar, setCalendar] = useState<CalendarEntry[] | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [me, setMe] = useState<MeResponse | null>(null);
 
   useEffect(() => {
     apiFetch<{ campaigns: Campaign[] }>("/api/campaigns")
@@ -43,45 +71,52 @@ export default function DashboardPage() {
     apiFetch<{ entries: CalendarEntry[] }>("/api/calendar")
       .then((r) => setCalendar(r.entries))
       .catch(() => setCalendar([]));
+    apiFetch<DashboardSummary>("/api/dashboard/summary")
+      .then(setSummary)
+      .catch(() =>
+        setSummary({
+          total_campaigns: 0,
+          active_campaigns: 0,
+          live_campaigns: 0,
+          total_attendees: 0,
+          scheduled_this_week: 0,
+        }),
+      );
+    apiFetch<MeResponse>("/api/me")
+      .then(setMe)
+      .catch(() => setMe(null));
   }, []);
 
-  const loading = campaigns === null;
-  const active = campaigns?.filter((c) => c.status !== "draft").length ?? 0;
-  const live = campaigns?.filter((c) => c.status === "published").length ?? 0;
-  const upcoming =
-    calendar?.filter((e) => new Date(e.scheduled_at) > new Date()).length ?? 0;
-
-  const totalAttendees = 142;
+  const loading = summary === null;
 
   const stats: Stat[] = [
     {
       label: "Active campaigns",
-      value: campaigns?.length ?? 0,
-      delta: live ? `${live} live` : undefined,
+      value: summary?.total_campaigns ?? 0,
+      delta: summary?.live_campaigns
+        ? `${summary.live_campaigns} live`
+        : undefined,
       trend: "up",
       icon: Rocket,
       accent: "from-violet-500/15 to-violet-500/0 text-violet-600",
     },
     {
       label: "Live this week",
-      value: active,
-      delta: "+2 vs last week",
-      trend: "up",
+      value: summary?.active_campaigns ?? 0,
       icon: Activity,
       accent: "from-emerald-500/15 to-emerald-500/0 text-emerald-600",
     },
     {
       label: "Scheduled posts",
-      value: upcoming,
-      delta: upcoming ? "Next 7 days" : undefined,
+      value: summary?.scheduled_this_week ?? 0,
+      delta: summary?.scheduled_this_week ? "Next 7 days" : undefined,
       trend: "flat",
       icon: Calendar,
       accent: "from-sky-500/15 to-sky-500/0 text-sky-600",
     },
     {
       label: "Total attendees",
-      value: totalAttendees,
-      delta: "Demo data",
+      value: summary?.total_attendees ?? 0,
       trend: "up",
       icon: Users,
       accent: "from-amber-500/15 to-amber-500/0 text-amber-600",
@@ -102,10 +137,11 @@ export default function DashboardPage() {
             {format(new Date(), "EEEE, MMMM d")}
           </p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
-            Good afternoon, <span className="gradient-text">Senesh</span>
+            {greeting()},{" "}
+            <span className="gradient-text">{firstName(me)}</span>
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500">
-            Here's a snapshot of your workspace activity.
+            Here&apos;s a snapshot of your workspace activity.
           </p>
         </div>
         <Link href="/dashboard/campaigns/new">
@@ -197,7 +233,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-zinc-100 border-t border-zinc-100">
-            {loading ? (
+            {campaigns === null ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-6 py-4">
                   <Skeleton className="h-10 w-10 rounded-xl" />

@@ -37,9 +37,19 @@ const typeLabels: Record<ContentType, string> = {
   email: "Email",
 };
 
-export function StrategyTimeline({ items }: { items: ContentItem[] }) {
+export function StrategyTimeline({
+  items,
+  authorName,
+  authorHandle,
+}: {
+  items: ContentItem[];
+  authorName?: string;
+  authorHandle?: string;
+}) {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const previewAuthorName = authorName?.trim() || "Your name";
+  const previewAuthorHandle = authorHandle?.trim() || "your_handle";
 
   function copy(id: string, text: string) {
     navigator.clipboard.writeText(text);
@@ -142,8 +152,8 @@ export function StrategyTimeline({ items }: { items: ContentItem[] }) {
                   <SocialPreview
                     type={item.type}
                     copy={item.copy}
-                    authorName="Senesh Fernando"
-                    authorHandle="senesh_dev"
+                    authorName={previewAuthorName}
+                    authorHandle={previewAuthorHandle}
                     date={format(new Date(item.scheduled_at), "MMM d")}
                   />
                 ) : (

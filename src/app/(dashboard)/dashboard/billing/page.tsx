@@ -40,7 +40,7 @@ const plans: Plan[] = [
     currency: "USD",
     features: [
       "1 active campaign",
-      "Mock AI generation",
+      "Limited AI generations",
       "Up to 50 attendees / event",
       "Community support",
     ],
@@ -81,44 +81,9 @@ const plans: Plan[] = [
   },
 ];
 
-const initialMethods: PaymentMethod[] = [
-  {
-    id: "pm_1",
-    brand: "visa",
-    last4: "4242",
-    exp_month: 12,
-    exp_year: 2028,
-    cardholder: "Senesh Fernando",
-    is_default: true,
-  },
-];
+const initialMethods: PaymentMethod[] = [];
 
-const history: BillingHistoryItem[] = [
-  {
-    id: "in_3",
-    description: "Pro plan · monthly",
-    amount_cents: 1900,
-    currency: "USD",
-    date: "2026-05-01T10:00:00Z",
-    status: "paid",
-  },
-  {
-    id: "in_2",
-    description: "Pro plan · monthly",
-    amount_cents: 1900,
-    currency: "USD",
-    date: "2026-04-01T10:00:00Z",
-    status: "paid",
-  },
-  {
-    id: "in_1",
-    description: "Pro plan · prorated",
-    amount_cents: 420,
-    currency: "USD",
-    date: "2026-03-21T10:00:00Z",
-    status: "paid",
-  },
-];
+const history: BillingHistoryItem[] = [];
 
 const statusStyles: Record<BillingHistoryItem["status"], string> = {
   paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -357,6 +322,17 @@ export default function BillingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
+              {history.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-5 py-8 text-center text-sm text-zinc-500"
+                  >
+                    No invoices yet — they&apos;ll show up here after your first
+                    payment.
+                  </td>
+                </tr>
+              )}
               {history.map((h) => (
                 <tr key={h.id} className="hover:bg-zinc-50/60">
                   <td className="px-5 py-3 font-medium text-zinc-900">

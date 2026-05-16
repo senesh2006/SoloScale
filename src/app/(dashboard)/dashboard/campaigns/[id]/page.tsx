@@ -43,6 +43,11 @@ import type {
   VoiceoverInput,
 } from "@/types/campaign";
 
+type MeResponse = {
+  uid: string;
+  user: { name?: string | null; email?: string | null } | null;
+};
+
 export default function CampaignDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
@@ -56,6 +61,13 @@ export default function CampaignDetailPage() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addingKind, setAddingKind] = useState<AssetKind | null>(null);
+  const [me, setMe] = useState<MeResponse | null>(null);
+
+  useEffect(() => {
+    apiFetch<MeResponse>("/api/me")
+      .then(setMe)
+      .catch(() => setMe(null));
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -276,7 +288,10 @@ export default function CampaignDetailPage() {
                   <div className="rounded-xl border border-zinc-100 bg-gradient-to-br from-zinc-50 to-white p-4 text-sm leading-relaxed text-zinc-700">
                     {campaign.strategy_json.summary}
                   </div>
-                  <StrategyTimeline items={campaign.strategy_json.timeline} />
+                  <StrategyTimeline
+                    items={campaign.strategy_json.timeline}
+                    authorName={me?.user?.name ?? undefined}
+                  />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
