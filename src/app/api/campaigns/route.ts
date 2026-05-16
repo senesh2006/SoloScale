@@ -39,16 +39,26 @@ export async function GET(request: Request) {
   const limit = parseLimit(url, 100, 500);
 
   const db = getAdminDb();
+  // No `orderBy` here so we don't require a composite index on
+  // (user_id, created_at). For dashboard-scale lists we sort in memory.
+  // Add the index and switch back to Firestore-side ordering once it's deployed.
   const snap = await db
     .collection(COLLECTIONS.campaigns)
     .where("user_id", "==", userId)
-    .orderBy("created_at", "desc")
     .limit(limit)
     .get();
 
   const campaigns = snap.docs
-    .map((d) => snapshotToObject({ id: d.id, data: () => d.data() }))
-    .filter(Boolean);
+    .map((d) => snapshotToObject<Record<string, unknown>>({
+      id: d.id,
+      data: () => d.data(),
+    }))
+    .filter((c): c is Record<string, unknown> & { id: string } => Boolean(c))
+    .sort((a, b) => {
+      const at = String(a.created_at ?? "");
+      const bt = String(b.created_at ?? "");
+      return bt.localeCompare(at);
+    });
 
   return NextResponse.json({ campaigns });
 }

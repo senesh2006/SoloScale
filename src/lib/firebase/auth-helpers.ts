@@ -34,6 +34,8 @@ export async function getAuthenticatedUid(
  *  1. Firebase ID token (preferred)
  *  2. `x-user-id` header (dev convenience)
  *  3. `user_id` field on the JSON body, if provided
+ *  4. `DEV_USER_ID` env var (server-only) — fallback for local dev before
+ *     Firebase Auth is wired into the client. Never set this in production.
  */
 export async function resolveUserId(
   request: Request,
@@ -48,6 +50,10 @@ export async function resolveUserId(
   if (body && typeof body.user_id === "string" && body.user_id.trim()) {
     return body.user_id.trim();
   }
+
+  const devUid = process.env.DEV_USER_ID;
+  if (devUid && devUid.trim()) return devUid.trim();
+
   return null;
 }
 
