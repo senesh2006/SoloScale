@@ -53,6 +53,16 @@ export type FlyerInput = {
   subtext?: string;
 };
 
+/**
+ * Prompts/settings used when regenerating assets via `soloscale-ai-service`.
+ * Stored on `campaigns.ai_hero`.
+ */
+export type AiHeroMeta = {
+  flyer?: FlyerInput;
+  voiceScript?: string;
+  voiceName?: string;
+};
+
 /** `campaigns/{campaignId}` — Firestore document fields. */
 export type CampaignDocument = {
   user_id: string;
@@ -61,16 +71,20 @@ export type CampaignDocument = {
   mode: CampaignMode;
   status: CampaignStatus;
   strategy_json: CampaignStrategy | null;
+  /** Primary event id — first/active landing page for the campaign. */
   event_id: string | null;
+  /** All event pages under this campaign (campaigns can host multiple). */
+  event_ids?: string[];
   event_date: Timestamp | null;
   audience: string | null;
   flyer_input: CampaignFlyerInput | null;
   voice_input: CampaignVoiceInput | null;
+  ai_hero?: AiHeroMeta;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
 
-/** API / mock serialized campaign. */
+/** API serialized campaign. */
 export type Campaign = {
   id: string;
   user_id: string;
@@ -82,16 +96,37 @@ export type Campaign = {
   created_at: string;
   updated_at: string;
   event_id: string | null;
+  event_ids?: string[];
   event_date?: string | null;
   audience?: string | null;
   flyer_input?: CampaignFlyerInput | null;
   voice_input?: CampaignVoiceInput | null;
+  ai_hero?: AiHeroMeta;
 };
 
 export type VoiceoverInput = {
   script: string;
   voice_id?: string;
   label?: string;
+};
+
+/** Reminder/automation entries scheduled for an event. */
+export type ReminderStatus = "scheduled" | "sent" | "cancelled";
+
+export type ReminderPresetId = "7d" | "24h" | "1h" | "custom";
+
+export type EventReminder = {
+  id: string;
+  event_id: string;
+  preset_id: ReminderPresetId | null;
+  label: string;
+  scheduled_for: string;
+  subject: string;
+  body: string;
+  status: ReminderStatus;
+  enabled: boolean;
+  channel?: "email" | "in_app";
+  sent_at?: string | null;
 };
 
 export type CalendarEntry = {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Rocket,
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { cn, initials } from "@/lib/utils";
+import { CampaignNavTree } from "@/components/layout/CampaignNavTree";
 
 type NavItem = {
   href: string;
@@ -110,31 +111,44 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           {nav.map((item) => {
             const active = isActive(item.href);
             const Icon = item.icon;
+            const isCampaigns = item.href === "/dashboard/campaigns";
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
-                  active
-                    ? "bg-violet-50 text-violet-700"
-                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-                )}
-              >
-                <Icon
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "h-[18px] w-[18px] transition-colors",
+                    "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
                     active
-                      ? "text-violet-600"
-                      : "text-zinc-400 group-hover:text-zinc-600",
+                      ? "bg-violet-50 text-violet-700"
+                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
                   )}
-                />
-                <span>{item.label}</span>
-                {active && (
-                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-violet-600" />
-                )}
-              </Link>
+                >
+                  <Icon
+                    className={cn(
+                      "h-[18px] w-[18px] transition-colors",
+                      active
+                        ? "text-violet-600"
+                        : "text-zinc-400 group-hover:text-zinc-600",
+                    )}
+                  />
+                  <span>{item.label}</span>
+                  {active && (
+                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-violet-600" />
+                  )}
+                </Link>
+                {isCampaigns ? (
+                  <Suspense
+                    fallback={
+                      <p className="px-3 py-2 text-xs text-zinc-400">
+                        Loading campaigns…
+                      </p>
+                    }
+                  >
+                    <CampaignNavTree onNavigate={() => setMobileOpen(false)} />
+                  </Suspense>
+                ) : null}
+              </div>
             );
           })}
         </nav>

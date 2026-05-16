@@ -17,7 +17,9 @@ type Params = { params: Promise<{ id: string }> };
 /**
  * POST /api/campaigns/[id]/event
  * Creates an event document from the campaign's strategy. Idempotent —
- * returns the existing event if `campaign.event_id` is already set.
+ * returns the existing event if `campaign.event_id` is already set, unless
+ * the request body provides a `title` (used to spin up additional landing
+ * pages under the same campaign).
  * Auth: campaign owner.
  */
 export async function POST(request: Request, { params }: Params) {
@@ -26,6 +28,9 @@ export async function POST(request: Request, { params }: Params) {
   const { id } = await params;
   const userId = await resolveUserId(request);
   if (!userId) return unauthorized();
+
+  const body = (await request.json().catch(() => ({}))) as { title?: string };
+  const overrideTitle = body.title?.trim();
 
   const db = getAdminDb();
   const owned = await getOwnedCampaign(db, id, userId);
@@ -43,7 +48,8 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
-  if (campaign.event_id) {
+  // Without an override title, return the existing event (idempotent).
+  if (!overrideTitle && campaign.event_id) {
     const existing = await db
       .collection(COLLECTIONS.events)
       .doc(campaign.event_id as string)
@@ -55,7 +61,7 @@ export async function POST(request: Request, { params }: Params) {
 
   const eventId = await createEventFromStrategy(db, {
     campaignId: id,
-    title: (campaign.title as string) ?? "Event",
+    title: overrideTitle || (campaign.title as string) || "Event",
     strategy,
   });
 

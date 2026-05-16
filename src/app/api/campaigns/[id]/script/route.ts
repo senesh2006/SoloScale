@@ -35,6 +35,7 @@ export async function POST(request: Request, { params }: Params) {
     title: campaign.title as string,
     goal_prompt: campaign.goal_prompt as string,
     hint: body?.hint,
+    strategy: campaign.strategy_json,
   });
 
   return NextResponse.json({ script });

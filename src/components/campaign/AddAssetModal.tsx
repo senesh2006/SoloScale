@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AudioLines, ImageIcon, Mic, Sparkles, Type, Wand2 } from "lucide-react";
+import {
+  AudioLines,
+  Calendar,
+  ImageIcon,
+  Mic,
+  Sparkles,
+  Type,
+  Wand2,
+} from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
@@ -27,12 +35,22 @@ export function AddAssetModal({
   onClose,
   onSubmit,
   onGenerateScript,
+  onFillFromStrategy,
+  hasStrategy,
 }: {
   open: boolean;
   kind: AssetKind | null;
   onClose: () => void;
   onSubmit: (data: Submit) => Promise<void> | void;
   onGenerateScript?: (hint?: string) => Promise<string>;
+  onFillFromStrategy?: (kind: AssetKind) => Promise<{
+    prompt?: string;
+    headline?: string;
+    subtext?: string;
+    label?: string;
+    script?: string;
+  }>;
+  hasStrategy?: boolean;
 }) {
   const [label, setLabel] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -41,6 +59,7 @@ export function AddAssetModal({
   const [voice, setVoice] = useState("auto");
   const [loading, setLoading] = useState(false);
   const [generatingScript, setGeneratingScript] = useState(false);
+  const [fillingFromStrategy, setFillingFromStrategy] = useState(false);
   const [scriptError, setScriptError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,9 +71,34 @@ export function AddAssetModal({
       setVoice("auto");
       setLoading(false);
       setGeneratingScript(false);
+      setFillingFromStrategy(false);
       setScriptError(null);
     }
   }, [open, kind]);
+
+  async function fillFromStrategy() {
+    if (!onFillFromStrategy || !kind) return;
+    setFillingFromStrategy(true);
+    setScriptError(null);
+    try {
+      const data = await onFillFromStrategy(kind);
+      if (kind === "flyer") {
+        if (data.prompt) setPrompt(data.prompt);
+        if (data.headline) setHeadline(data.headline);
+        if (data.subtext) setSubtext(data.subtext);
+        if (data.label) setLabel(data.label);
+      } else {
+        if (data.script) setPrompt(data.script);
+        if (data.label) setLabel(data.label);
+      }
+    } catch (err) {
+      setScriptError(
+        err instanceof Error ? err.message : "Couldn't load strategy brief",
+      );
+    } finally {
+      setFillingFromStrategy(false);
+    }
+  }
 
   async function generateScript() {
     if (!onGenerateScript) return;
@@ -149,6 +193,21 @@ export function AddAssetModal({
 
           {isFlyer ? (
             <>
+              {hasStrategy && onFillFromStrategy ? (
+                <button
+                  type="button"
+                  onClick={fillFromStrategy}
+                  disabled={fillingFromStrategy}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50/80 px-3 py-2.5 text-sm font-semibold text-violet-800 transition-colors hover:bg-violet-100 disabled:opacity-60"
+                >
+                  <Calendar
+                    className={`h-4 w-4 ${fillingFromStrategy ? "animate-pulse" : ""}`}
+                  />
+                  {fillingFromStrategy
+                    ? "Pulling from strategy…"
+                    : "Fill from strategy"}
+                </button>
+              ) : null}
               <Textarea
                 name="prompt"
                 label="Visual prompt"
@@ -183,30 +242,45 @@ export function AddAssetModal({
           ) : (
             <>
               <div className="space-y-2">
-                <div className="flex items-end justify-between gap-3">
+                <div className="flex flex-wrap items-end justify-between gap-2">
                   <label
                     htmlFor="script"
                     className="text-xs font-medium text-zinc-700"
                   >
                     Script
                   </label>
-                  {onGenerateScript ? (
-                    <button
-                      type="button"
-                      onClick={generateScript}
-                      disabled={generatingScript}
-                      className="group inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-gradient-to-br from-violet-50 to-white px-2.5 py-1 text-xs font-semibold text-violet-700 shadow-sm transition-all hover:-translate-y-px hover:border-violet-300 hover:shadow disabled:opacity-60"
-                    >
-                      <Wand2
-                        className={`h-3 w-3 ${generatingScript ? "animate-spin" : ""}`}
-                      />
-                      {generatingScript
-                        ? "Drafting…"
-                        : prompt.trim()
-                          ? "Rewrite with AI"
-                          : "Generate with AI"}
-                    </button>
-                  ) : null}
+                  <div className="flex flex-wrap gap-1.5">
+                    {hasStrategy && onFillFromStrategy ? (
+                      <button
+                        type="button"
+                        onClick={fillFromStrategy}
+                        disabled={fillingFromStrategy}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 disabled:opacity-60"
+                      >
+                        <Calendar
+                          className={`h-3 w-3 ${fillingFromStrategy ? "animate-pulse" : ""}`}
+                        />
+                        {fillingFromStrategy ? "Loading…" : "From strategy"}
+                      </button>
+                    ) : null}
+                    {onGenerateScript ? (
+                      <button
+                        type="button"
+                        onClick={generateScript}
+                        disabled={generatingScript}
+                        className="group inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-gradient-to-br from-violet-50 to-white px-2.5 py-1 text-xs font-semibold text-violet-700 shadow-sm transition-all hover:-translate-y-px hover:border-violet-300 hover:shadow disabled:opacity-60"
+                      >
+                        <Wand2
+                          className={`h-3 w-3 ${generatingScript ? "animate-spin" : ""}`}
+                        />
+                        {generatingScript
+                          ? "Drafting…"
+                          : prompt.trim()
+                            ? "Rewrite with AI"
+                            : "Generate with AI"}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <Textarea
                   id="script"
