@@ -1,202 +1,301 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { format, isToday } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { format, isToday, isThisWeek } from "date-fns";
+import {
+  Calendar as CalendarIcon,
+  Send,
+  MessageSquare,
+  Globe,
+  X,
+  Clock,
+  ExternalLink,
+  Mail,
+  Share2,
+  Copy,
+  Check,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import type { CalendarEntry } from "@/types/campaign";
-import { Calendar as CalendarIcon, Send, MessageSquare, Globe, ArrowUpRight, X, Clock, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Button } from "@/components/ui/Button";
 
-const typeIcons: Record<string, any> = {
+const typeIcons: Record<string, React.ElementType> = {
   event: Globe,
   tweet: MessageSquare,
-  post: Send,
-  default: CalendarIcon
+  linkedin: Share2,
+  email: Mail,
+  reel: Send,
+  default: Send,
 };
 
-const typeColors: Record<string, string> = {
-  event: "text-violet-600 bg-violet-50 border-violet-100",
-  tweet: "text-sky-500 bg-sky-50 border-sky-100",
-  post: "text-emerald-500 bg-emerald-50 border-emerald-100",
-  default: "text-zinc-500 bg-zinc-50 border-zinc-100"
+const typeStyles: Record<string, string> = {
+  event: "bg-violet-50 text-violet-600 ring-violet-100",
+  tweet: "bg-sky-50 text-sky-600 ring-sky-100",
+  linkedin: "bg-indigo-50 text-indigo-600 ring-indigo-100",
+  email: "bg-amber-50 text-amber-600 ring-amber-100",
+  reel: "bg-fuchsia-50 text-fuchsia-600 ring-fuchsia-100",
+  default: "bg-zinc-50 text-zinc-600 ring-zinc-100",
 };
+
+const typeLabels: Record<string, string> = {
+  event: "Event",
+  tweet: "Tweet",
+  linkedin: "LinkedIn",
+  email: "Email",
+  reel: "Reel",
+};
+
+type Filter = "all" | string;
 
 export default function CalendarPage() {
-  const [entries, setEntries] = useState<CalendarEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<CalendarEntry[] | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     apiFetch<{ entries: CalendarEntry[] }>("/api/calendar")
-      .then(({ entries: e }) => {
-        setEntries(e);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
+      .then(({ entries: e }) => setEntries(e))
+      .catch(() => setEntries([]));
   }, []);
 
-  return (
-    <div className="max-w-6xl">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600/10 text-violet-600">
-          <CalendarIcon className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Content Calendar</h1>
-          <p className="text-sm text-zinc-500">
-            Unified view of your AI-generated marketing schedule.
-          </p>
-        </div>
-      </div>
+  const filtered = useMemo(() => {
+    if (!entries) return [];
+    if (filter === "all") return entries;
+    return entries.filter((e) => e.type === filter);
+  }, [entries, filter]);
 
-      <div className="mt-12 flex gap-10">
-        <div className="flex-1 space-y-8">
-          {loading ? (
-            <div className="flex h-40 items-center justify-center">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-200 border-t-violet-600" />
-            </div>
-          ) : entries.length === 0 ? (
-            <div className="rounded-3xl border-2 border-dashed border-zinc-200 p-12 text-center">
-               <CalendarIcon className="mx-auto h-12 w-12 text-zinc-300" />
-               <h3 className="mt-4 text-sm font-semibold text-zinc-900">No scheduled content</h3>
-               <p className="mt-1 text-sm text-zinc-500">Create your first campaign to generate a content calendar.</p>
-            </div>
+  const types = useMemo(() => {
+    if (!entries) return [];
+    return Array.from(new Set(entries.map((e) => e.type)));
+  }, [entries]);
+
+  const thisWeek = entries?.filter((e) => isThisWeek(new Date(e.scheduled_at))).length ?? 0;
+
+  function copyText(text: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+            <CalendarIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-950">
+              Content calendar
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              {entries === null
+                ? "Loading…"
+                : `${entries.length} items scheduled · ${thisWeek} this week`}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {/* Filter chips */}
+      {entries && entries.length > 0 && (
+        <div className="mt-8 flex flex-wrap gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
+          <button
+            onClick={() => setFilter("all")}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+              filter === "all"
+                ? "bg-zinc-900 text-white"
+                : "text-zinc-600 hover:text-zinc-900",
+            )}
+          >
+            All
+          </button>
+          {types.map((t) => (
+            <button
+              key={t}
+              onClick={() => setFilter(t)}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === t
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-600 hover:text-zinc-900",
+              )}
+            >
+              {typeLabels[t] ?? t}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-3">
+          {entries === null ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-2xl" />
+            ))
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={<CalendarIcon className="h-5 w-5" />}
+              title="No scheduled content"
+              description="Create your first campaign to generate a content calendar."
+            />
           ) : (
-            <div className="relative space-y-6">
-              <div className="absolute left-10 top-2 bottom-2 w-px bg-zinc-200" />
-              
-              {entries.map((entry) => {
-                const Icon = typeIcons[entry.type] || typeIcons.default;
+            <div className="relative space-y-3">
+              {filtered.map((entry) => {
+                const Icon = typeIcons[entry.type] ?? typeIcons.default;
+                const styles = typeStyles[entry.type] ?? typeStyles.default;
                 const date = new Date(entry.scheduled_at);
                 const isSelected = selectedEntry?.id === entry.id;
-                
+
                 return (
-                  <div key={entry.id} className="relative flex gap-6">
-                    <div className="flex flex-col items-center min-w-20 pt-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                  <button
+                    key={entry.id}
+                    onClick={() => setSelectedEntry(entry)}
+                    className={cn(
+                      "group flex w-full items-center gap-4 rounded-2xl border bg-white p-4 text-left transition-all hover:-translate-y-px hover:shadow-md",
+                      isSelected
+                        ? "border-violet-300 ring-2 ring-violet-100"
+                        : "border-zinc-200",
+                    )}
+                  >
+                    <div className="flex w-12 shrink-0 flex-col items-center">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
                         {format(date, "MMM")}
                       </span>
-                      <span className="text-2xl font-black tracking-tighter text-zinc-900 leading-none">
+                      <span className="text-xl font-semibold tracking-tight text-zinc-950">
                         {format(date, "dd")}
                       </span>
                     </div>
 
-                    <button 
-                      onClick={() => setSelectedEntry(entry)}
+                    <div
                       className={cn(
-                        "flex-1 text-left rounded-2xl border bg-white p-5 shadow-sm transition-all hover:shadow-md group outline-none",
-                        isToday(date) && "ring-2 ring-violet-600/10 border-violet-200",
-                        isSelected && "border-violet-600 ring-4 ring-violet-600/5 shadow-md bg-zinc-50/30"
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset",
+                        styles,
                       )}
                     >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-lg border",
-                            typeColors[entry.type] || typeColors.default
-                          )}>
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-zinc-900 line-clamp-1">{entry.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                                {entry.campaign_title}
-                              </span>
-                              {isToday(date) && (
-                                <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[8px] font-black text-white uppercase tracking-tighter">
-                                  Today
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <ArrowUpRight className={cn(
-                          "h-4 w-4 transition-all",
-                          isSelected ? "text-violet-600 translate-x-0.5 -translate-y-0.5" : "text-zinc-300 group-hover:text-violet-600"
-                        )} />
+                      <Icon className="h-4 w-4" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-zinc-900">
+                        {entry.title}
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500">
+                        <span className="truncate">{entry.campaign_title}</span>
+                        <span className="text-zinc-300">·</span>
+                        <span>{format(date, "h:mm a")}</span>
+                        {isToday(date) && (
+                          <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+                            Today
+                          </span>
+                        )}
                       </div>
-                    </button>
-                  </div>
+                    </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
 
-        {/* Quick View Sidebar */}
-        <div className="hidden lg:block w-80 shrink-0">
-          <div className="sticky top-10">
+        {/* Detail panel */}
+        <div className="hidden lg:block">
+          <div className="sticky top-24">
             {selectedEntry ? (
-              <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl animate-in slide-in-from-right-4 duration-300">
-                <div className="flex items-center justify-between mb-8">
-                  <div className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-xl border",
-                    typeColors[selectedEntry.type] || typeColors.default
-                  )}>
+              <div className="animate-fade-in rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl shadow-zinc-200/40">
+                <div className="mb-5 flex items-start justify-between">
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset",
+                      typeStyles[selectedEntry.type] ?? typeStyles.default,
+                    )}
+                  >
                     {(() => {
-                      const Icon = typeIcons[selectedEntry.type] || typeIcons.default;
-                      return <Icon className="h-5 w-5" />;
+                      const Icon =
+                        typeIcons[selectedEntry.type] ?? typeIcons.default;
+                      return <Icon className="h-4 w-4" />;
                     })()}
                   </div>
-                  <button 
+                  <button
                     onClick={() => setSelectedEntry(null)}
-                    className="p-2 hover:bg-zinc-100 rounded-full transition-colors text-zinc-400 hover:text-zinc-950"
+                    className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
+                    aria-label="Close"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-5">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-violet-600">
-                      Scheduled for
-                    </span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Clock className="h-4 w-4 text-zinc-400" />
-                      <p className="text-sm font-bold text-zinc-950">
-                        {format(new Date(selectedEntry.scheduled_at), "MMMM dd, yyyy")}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                      Content Details
-                    </span>
-                    <p className="mt-2 text-sm font-medium text-zinc-700 leading-relaxed italic">
-                      "{selectedEntry.title}"
+                    <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      Scheduled
+                    </p>
+                    <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-zinc-900">
+                      <Clock className="h-3.5 w-3.5 text-zinc-400" />
+                      {format(
+                        new Date(selectedEntry.scheduled_at),
+                        "EEEE, MMM d · h:mm a",
+                      )}
                     </p>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                      Associated Campaign
-                    </span>
-                    <p className="mt-1 text-sm font-bold text-zinc-950">
+                    <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      Content
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-zinc-700">
+                      {selectedEntry.title}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                      Campaign
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-zinc-900">
                       {selectedEntry.campaign_title}
                     </p>
                   </div>
 
-                  <div className="pt-6 border-t border-zinc-100">
-                    <Link 
-                      href={`/dashboard/campaigns/${selectedEntry.campaign_id}`}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-950 py-3 text-sm font-bold text-white hover:bg-zinc-800 transition-all"
+                  <div className="space-y-2 border-t border-zinc-100 pt-5">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      leftIcon={
+                        copied ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )
+                      }
+                      onClick={() => copyText(selectedEntry.title)}
                     >
-                      <ExternalLink className="h-4 w-4" />
-                      View Campaign
+                      {copied ? "Copied" : "Copy text"}
+                    </Button>
+                    <Link
+                      href={`/dashboard/campaigns/${selectedEntry.campaign_id}`}
+                    >
+                      <Button
+                        variant="dark"
+                        className="w-full"
+                        leftIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                      >
+                        View campaign
+                      </Button>
                     </Link>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="rounded-3xl border-2 border-dashed border-zinc-200 p-8 text-center bg-zinc-50/50">
-                <Clock className="mx-auto h-8 w-8 text-zinc-300" />
-                <p className="mt-4 text-xs font-bold text-zinc-400 uppercase tracking-widest">
+              <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/40 p-8 text-center">
+                <Clock className="mx-auto h-5 w-5 text-zinc-300" />
+                <p className="mt-2 text-xs font-medium text-zinc-500">
                   Select an entry to view details
                 </p>
               </div>

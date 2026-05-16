@@ -1,116 +1,198 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import type { Campaign } from "@/types/campaign";
+import type { Campaign, CampaignStatus } from "@/types/campaign";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { Plus, Rocket, Calendar, ArrowRight, Sparkles } from "lucide-react";
-import { format } from "date-fns";
+import { Plus, Rocket, ArrowUpRight, Search, Sparkles } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+
+type Filter = "all" | CampaignStatus;
+
+const filters: { value: Filter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "draft", label: "Drafting" },
+  { value: "strategy_ready", label: "Strategy" },
+  { value: "assets_ready", label: "Assets" },
+  { value: "published", label: "Live" },
+];
+
+const progress: Record<CampaignStatus, { pct: string; color: string }> = {
+  draft: { pct: "w-1/4", color: "bg-zinc-300" },
+  strategy_ready: { pct: "w-1/2", color: "bg-sky-500" },
+  assets_ready: { pct: "w-3/4", color: "bg-violet-500" },
+  published: { pct: "w-full", color: "bg-emerald-500" },
+};
 
 export default function CampaignsPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     apiFetch<{ campaigns: Campaign[] }>("/api/campaigns")
-      .then(({ campaigns: c }) => {
-        setCampaigns(c);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
+      .then(({ campaigns: c }) => setCampaigns(c))
+      .catch(() => setCampaigns([]));
   }, []);
 
+  const filtered = useMemo(() => {
+    if (!campaigns) return [];
+    return campaigns.filter((c) => {
+      if (filter !== "all" && c.status !== filter) return false;
+      const needle = q.trim().toLowerCase();
+      if (needle && !c.title.toLowerCase().includes(needle)) return false;
+      return true;
+    });
+  }, [campaigns, filter, q]);
+
   return (
-    <div className="max-w-5xl space-y-10">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto max-w-6xl space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-950">Your Campaigns</h1>
-          <p className="mt-1 text-zinc-500">
-            Manage your AI-powered marketing strategies and assets.
+          <h1 className="text-3xl font-semibold tracking-tight text-zinc-950">
+            Campaigns
+          </h1>
+          <p className="mt-1.5 text-sm text-zinc-500">
+            Every AI-built strategy, asset, and event in one place.
           </p>
         </div>
-        <Link
-          href="/dashboard/campaigns/new"
-          className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 hover:bg-violet-500 transition-all"
-        >
-          <Plus className="h-4 w-4" />
-          New Campaign
+        <Link href="/dashboard/campaigns/new">
+          <Button leftIcon={<Plus className="h-4 w-4" />}>New campaign</Button>
         </Link>
       </header>
 
-      {loading ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-violet-600" />
-        </div>
-      ) : campaigns.length === 0 ? (
-        <div className="rounded-3xl border-2 border-dashed border-zinc-200 p-20 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-50 text-zinc-400">
-            <Rocket className="h-8 w-8" />
-          </div>
-          <h3 className="mt-6 text-lg font-bold text-zinc-950">No campaigns yet</h3>
-          <p className="mt-2 text-sm text-zinc-500 max-w-sm mx-auto">
-            Ready to scale? Create your first campaign and let our AI agents do the heavy lifting.
-          </p>
-          <Link
-            href="/dashboard/campaigns/new"
-            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white hover:bg-violet-500 transition-all"
-          >
-            <Sparkles className="h-4 w-4" />
-            Launch First Campaign
-          </Link>
-        </div>
-      ) : (
-        <div className="grid gap-6">
-          {campaigns.map((campaign) => (
-            <Link
-              key={campaign.id}
-              href={`/dashboard/campaigns/${campaign.id}`}
-              className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all hover:border-violet-600 hover:shadow-md"
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
+          {filters.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === f.value
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-600 hover:text-zinc-900",
+              )}
             >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-bold text-zinc-950 group-hover:text-violet-600 transition-colors">
-                      {campaign.title}
-                    </h3>
-                    <StatusBadge status={campaign.status} />
-                  </div>
-                  <p className="text-sm text-zinc-500 line-clamp-1 max-w-2xl italic">
-                    "{campaign.goal_prompt}"
-                  </p>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Created</p>
-                    <p className="text-sm font-bold text-zinc-900">
-                      {format(new Date(campaign.created_at), "MMM dd, yyyy")}
-                    </p>
-                  </div>
-                  <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-zinc-50 text-zinc-400 group-hover:bg-violet-50 group-hover:text-violet-600 transition-all">
-                    <ArrowRight className="h-5 w-5" />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Progress Bar (Decorative) */}
-              <div className="mt-6 h-1 w-full rounded-full bg-zinc-100 overflow-hidden">
-                <div 
-                  className={cn(
-                    "h-full transition-all duration-500",
-                    campaign.status === 'published' ? 'w-full bg-emerald-500' :
-                    campaign.status === 'assets_ready' ? 'w-3/4 bg-violet-500' :
-                    campaign.status === 'strategy_ready' ? 'w-1/2 bg-blue-500' : 'w-1/4 bg-zinc-300'
-                  )} 
-                />
-              </div>
-            </Link>
+              {f.label}
+            </button>
           ))}
         </div>
+
+        <div className="relative max-w-xs flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search campaigns..."
+            className="h-9 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-sm placeholder:text-zinc-400 transition-colors focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+      </div>
+
+      {campaigns === null ? (
+        <div className="grid gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        q || filter !== "all" ? (
+          <EmptyState
+            icon={<Search className="h-5 w-5" />}
+            title="No campaigns match your filters"
+            description="Try clearing the search or selecting a different status."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setQ("");
+                  setFilter("all");
+                }}
+              >
+                Reset filters
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={<Rocket className="h-5 w-5" />}
+            title="No campaigns yet"
+            description="Spin up your first campaign and let the AI agents do the heavy lifting."
+            action={
+              <Link href="/dashboard/campaigns/new">
+                <Button leftIcon={<Sparkles className="h-4 w-4" />}>
+                  Create first campaign
+                </Button>
+              </Link>
+            }
+          />
+        )
+      ) : (
+        <ul className="grid gap-3">
+          {filtered.map((campaign, i) => {
+            const p = progress[campaign.status];
+            return (
+              <li
+                key={campaign.id}
+                className={cn("animate-fade-up", `stagger-${Math.min(i, 6)}`)}
+              >
+                <Link
+                  href={`/dashboard/campaigns/${campaign.id}`}
+                  className="group relative block overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_1px_2px_rgba(9,9,11,0.04)] transition-all hover:-translate-y-px hover:border-zinc-300 hover:shadow-md"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-semibold text-zinc-950 group-hover:text-violet-700">
+                          {campaign.title}
+                        </h3>
+                        <StatusBadge status={campaign.status} />
+                      </div>
+                      <p className="line-clamp-1 max-w-2xl text-sm text-zinc-500">
+                        {campaign.goal_prompt}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+                          Created
+                        </p>
+                        <p
+                          className="text-sm font-semibold text-zinc-900"
+                          title={format(new Date(campaign.created_at), "PPpp")}
+                        >
+                          {formatDistanceToNow(new Date(campaign.created_at))} ago
+                        </p>
+                      </div>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-50 text-zinc-400 transition-colors group-hover:bg-violet-50 group-hover:text-violet-600">
+                        <ArrowUpRight className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 h-1 w-full overflow-hidden rounded-full bg-zinc-100">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-500",
+                        p.pct,
+                        p.color,
+                      )}
+                    />
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

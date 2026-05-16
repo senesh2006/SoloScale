@@ -3,108 +3,133 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowRight, Mail, Lock, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowRight, Mail, Lock } from "lucide-react";
+import { AuthShell } from "@/components/layout/AuthShell";
+import { Button } from "@/components/ui/Button";
+import { TextField } from "@/components/ui/TextField";
 
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    // Mock login delay
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 800);
-  };
+    setTimeout(() => router.push("/dashboard"), 600);
+  }
 
   return (
-    <div className="relative isolate min-h-screen flex items-center justify-center px-4 overflow-hidden bg-zinc-50">
-       {/* Background Gradients */}
-       <div
-        className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
-        aria-hidden="true"
-      >
-        <div
-          className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-violet-200 to-indigo-300 opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"
-        />
-      </div>
-
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <Link href="/" className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white font-bold text-xl shadow-lg shadow-violet-600/20 mb-6">
-            S
+    <AuthShell
+      title="Welcome back"
+      subtitle="Log in to your AI marketing workspace."
+      footer={
+        <>
+          Don't have an account?{" "}
+          <Link
+            href="/signup"
+            className="font-semibold text-violet-600 hover:text-violet-700"
+          >
+            Create one free
           </Link>
-          <h1 className="text-3xl font-black tracking-tight text-zinc-950">Welcome back</h1>
-          <p className="mt-2 text-sm font-medium text-zinc-500">
-            Log in to your AI marketing department
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-zinc-200 bg-white p-8 shadow-2xl shadow-zinc-200/50">
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                <Mail className="h-3 w-3" />
-                Email Address
-              </label>
-              <input
-                type="email"
-                placeholder="peter@example.com"
-                required
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-violet-600 focus:bg-white focus:ring-4 focus:ring-violet-600/5"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                  <Lock className="h-3 w-3" />
-                  Password
-                </label>
-                <a href="#" className="text-[10px] font-black uppercase tracking-widest text-violet-600 hover:text-violet-500">Forgot?</a>
-              </div>
-              <input
-                type="password"
-                placeholder="••••••••"
-                required
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-violet-600 focus:bg-white focus:ring-4 focus:ring-violet-600/5"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className={cn(
-                "group flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-950 py-4 text-sm font-black text-white transition-all hover:bg-zinc-800 disabled:opacity-50",
-                loading && "animate-pulse"
-              )}
+        </>
+      }
+    >
+      <form onSubmit={handleLogin} className="space-y-5">
+        <TextField
+          name="email"
+          type="email"
+          label="Email"
+          placeholder="you@example.com"
+          leftIcon={<Mail className="h-4 w-4" />}
+          required
+          autoComplete="email"
+        />
+        <TextField
+          name="password"
+          type="password"
+          label="Password"
+          placeholder="••••••••"
+          leftIcon={<Lock className="h-4 w-4" />}
+          required
+          autoComplete="current-password"
+          rightSlot={
+            <Link
+              href="#"
+              className="text-xs font-medium text-violet-600 hover:text-violet-700"
             >
-              {loading ? "Authenticating..." : (
-                <>
-                  Log In
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </>
-              )}
-            </button>
-          </form>
+              Forgot?
+            </Link>
+          }
+        />
 
-          <div className="mt-8 pt-6 border-t border-zinc-100 text-center">
-             <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-              Don't have an account?{" "}
-              <Link href="/signup" className="text-violet-600 hover:text-violet-500">
-                Create one free
-              </Link>
-            </p>
+        <Button
+          type="submit"
+          variant="dark"
+          size="lg"
+          className="w-full"
+          loading={loading}
+          rightIcon={!loading ? <ArrowRight className="h-4 w-4" /> : undefined}
+        >
+          {loading ? "Signing in" : "Log in"}
+        </Button>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-zinc-100" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-3 text-zinc-400">or continue with</span>
           </div>
         </div>
 
-        <div className="text-center flex items-center justify-center gap-2 text-zinc-400">
-          <Sparkles className="h-4 w-4" />
-          <span className="text-[10px] font-black uppercase tracking-widest">Secured by SoloScale Cloud</span>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            <GoogleMark />
+            Google
+          </button>
+          <button
+            type="button"
+            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            <GitHubMark />
+            GitHub
+          </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </AuthShell>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="h-4 w-4">
+      <path
+        fill="#FFC107"
+        d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.3 14.7l6.6 4.8C14.6 16 18.9 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.6 39.6 16.2 44 24 44z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2C41.9 35.8 44 30.3 44 24c0-1.3-.1-2.3-.4-3.5z"
+      />
+    </svg>
+  );
+}
+
+function GitHubMark() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4 fill-zinc-900">
+      <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 005.47 7.59c.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.08-2.7-1.08-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.88 2.34.67.07-.52.28-.88.51-1.08-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.6 7.6 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.74.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
   );
 }

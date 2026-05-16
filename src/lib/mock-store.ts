@@ -4,6 +4,7 @@ import type {
   Attendee,
   CalendarEntry,
   Campaign,
+  CampaignStatus,
   CampaignStrategy,
   Event,
 } from "@/types/campaign";
@@ -50,6 +51,7 @@ if (campaigns.size === 0) {
     },
     form_fields: strategy.event_draft.form_fields,
     attendee_count: 42,
+    price: { amount_cents: 2500, currency: "USD" },
   });
 
   assets.set(demoId, [
@@ -115,6 +117,7 @@ export function createCampaign(input: {
   title: string;
   goal_prompt: string;
   user_id?: string;
+  strategy?: CampaignStrategy;
 }): Campaign {
   const id = uid("camp");
   const campaign: Campaign = {
@@ -123,40 +126,96 @@ export function createCampaign(input: {
     title: input.title,
     goal_prompt: input.goal_prompt,
     status: "draft",
-    strategy_json: null,
+    strategy_json: input.strategy ?? null,
     created_at: new Date().toISOString(),
     event_id: null,
   };
   campaigns.set(id, campaign);
 
-  setTimeout(() => {
-    const current = campaigns.get(id);
-    if (!current) return;
-    const strategy = demoStrategy as CampaignStrategy;
+  if (!input.strategy) {
+    // Default mock behavior if no strategy provided
+    setTimeout(() => {
+      const current = campaigns.get(id);
+      if (!current) return;
+      const strategy = demoStrategy as CampaignStrategy;
+      const eventId = uid("evt");
+      const event: Event = {
+        id: eventId,
+        campaign_id: id,
+        slug: slugify(input.title || "react-workshop"),
+        published: false,
+        landing: {
+          headline: strategy.event_draft.headline,
+          subhead: strategy.event_draft.subhead,
+          body_md: strategy.event_draft.body_md,
+        },
+        form_fields: strategy.event_draft.form_fields,
+        attendee_count: 0,
+      };
+      events.set(eventId, event);
+      campaigns.set(id, {
+        ...current,
+        status: "strategy_ready",
+        strategy_json: strategy,
+        event_id: eventId,
+      });
+    }, 800);
+  } else {
+    // If strategy is provided, set it up immediately
     const eventId = uid("evt");
     const event: Event = {
       id: eventId,
       campaign_id: id,
-      slug: slugify(input.title || "react-workshop"),
+      slug: slugify(input.title),
       published: false,
       landing: {
-        headline: strategy.event_draft.headline,
-        subhead: strategy.event_draft.subhead,
-        body_md: strategy.event_draft.body_md,
+        headline: input.strategy.event_draft.headline,
+        subhead: input.strategy.event_draft.subhead,
+        body_md: input.strategy.event_draft.body_md,
       },
-      form_fields: strategy.event_draft.form_fields,
+      form_fields: input.strategy.event_draft.form_fields,
       attendee_count: 0,
     };
     events.set(eventId, event);
-    campaigns.set(id, {
-      ...current,
-      status: "strategy_ready",
-      strategy_json: strategy,
-      event_id: eventId,
+    campaigns.set(id, { 
+      ...campaign, 
+      status: "strategy_ready", 
+      strategy_json: input.strategy, 
+      event_id: eventId 
     });
-  }, 800);
+  }
 
   return campaign;
+}
+
+export function updateCampaignStrategy(id: string, strategy: CampaignStrategy): Campaign | undefined {
+  const campaign = campaigns.get(id);
+  if (!campaign) return undefined;
+
+  const eventId = uid("evt");
+  const event: Event = {
+    id: eventId,
+    campaign_id: id,
+    slug: slugify(campaign.title),
+    published: false,
+    landing: {
+      headline: strategy.event_draft.headline,
+      subhead: strategy.event_draft.subhead,
+      body_md: strategy.event_draft.body_md,
+    },
+    form_fields: strategy.event_draft.form_fields,
+    attendee_count: 0,
+  };
+  events.set(eventId, event);
+
+  const updated = {
+    ...campaign,
+    status: "strategy_ready" as CampaignStatus,
+    strategy_json: strategy,
+    event_id: eventId,
+  };
+  campaigns.set(id, updated);
+  return updated;
 }
 
 export function getCampaignAssets(campaignId: string): Asset[] {
@@ -220,7 +279,7 @@ export function getEventBySlug(slug: string): Event | undefined {
 
 export function updateEvent(
   id: string,
-  patch: Partial<Pick<Event, "landing" | "form_fields">>,
+  patch: Partial<Pick<Event, "landing" | "form_fields" | "price">>,
 ): Event | undefined {
   const event = events.get(id);
   if (!event) return undefined;

@@ -60,6 +60,13 @@ export type FormField = {
   options?: string[];
 };
 
+export type Currency = "USD" | "EUR" | "GBP" | "INR" | "LKR";
+
+export type EventPrice = {
+  amount_cents: number;
+  currency: Currency;
+};
+
 export type Event = {
   id: string;
   campaign_id: string;
@@ -68,6 +75,7 @@ export type Event = {
   landing: { headline: string; subhead: string; body_md: string };
   form_fields: FormField[];
   attendee_count: number;
+  price?: EventPrice | null;
 };
 
 export type Attendee = {

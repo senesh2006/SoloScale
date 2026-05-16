@@ -35,6 +35,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const event = updateEvent(id, {
     landing: body.landing,
     form_fields: body.form_fields,
+    price: body.price,
   });
 
   if (!event) {
