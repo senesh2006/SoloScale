@@ -1,15 +1,20 @@
-import type { Currency } from "./campaign";
+import { Timestamp } from "firebase/firestore";
 
 export type PlanId = "free" | "pro" | "team";
 export type BillingPeriod = "monthly" | "yearly";
+
+export type Currency = "USD" | "EUR" | "GBP" | "INR" | "LKR";
+
+export type Price = {
+  cents: number;
+  whole: number;
+  currency: Currency;
+};
 
 export type Plan = {
   id: PlanId;
   name: string;
   tagline: string;
-  price_monthly_cents: number;
-  price_yearly_cents: number;
-  currency: Currency;
   features: string[];
   highlighted?: boolean;
   cta: string;
@@ -27,12 +32,14 @@ export type PaymentMethod = {
   is_default?: boolean;
 };
 
-export type BillingHistoryItem = {
+export type Payment = {
   id: string;
-  description: string;
-  amount_cents: number;
-  currency: Currency;
-  date: string;
-  status: "paid" | "pending" | "failed" | "refunded";
-  invoice_url?: string;
+  attendee_id: string;
+  email: string;
+  
+  event_id: string;
+  amount: Price;
+  status: "succeeded" | "pending" | "failed" | "refunded";
+  created_at: Timestamp;
+  refund_reason?: string;
 };
