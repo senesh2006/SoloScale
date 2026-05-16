@@ -8,6 +8,7 @@ import type {
   FlyerInput,
   VoiceoverInput,
 } from "@/types/campaign";
+import { GEMINI_TEXT_MODEL } from "@/services/ai/geminiModel";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -77,7 +78,7 @@ export async function generateAssetsFromStrategy(input: {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: GEMINI_TEXT_MODEL,
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -192,7 +193,7 @@ export async function refineCampaignStrategy(input: {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: GEMINI_TEXT_MODEL,
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: schema,
@@ -277,7 +278,7 @@ export async function generateVoiceScript(input: {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: GEMINI_TEXT_MODEL });
     const strategyBlock = input.strategy
       ? `
       Use this approved campaign strategy for tone and messaging:
@@ -332,7 +333,7 @@ export async function generateCampaignStrategy(input: {
   }
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: GEMINI_TEXT_MODEL,
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: schema,

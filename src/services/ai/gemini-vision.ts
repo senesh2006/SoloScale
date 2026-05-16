@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, SchemaType, type Schema } from "@google/generative-ai";
+import { GEMINI_TEXT_MODEL } from "@/services/ai/geminiModel";
 import type { VisionCampaignSeed } from "@/types/vision";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -46,7 +47,7 @@ export async function analyzeCampaignSketch(input: {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: GEMINI_TEXT_MODEL,
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: visionSeedSchema,
