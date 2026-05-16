@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Sparkles,
@@ -23,6 +23,8 @@ import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/TextField";
 import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/lib/utils";
+import { VisionSeedUploader } from "@/components/campaign/VisionSeedUploader";
+import type { VisionCampaignSeed } from "@/types/vision";
 
 type Mode = "all" | "strategy";
 
@@ -64,6 +66,13 @@ const examplePrompts: Record<Mode, string[]> = {
 export default function NewCampaignPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("all");
+  const [visionSeed, setVisionSeed] = useState<VisionCampaignSeed | null>(null);
+  const [visionSeedVersion, setVisionSeedVersion] = useState(0);
+
+  function applyVisionSeed(seed: VisionCampaignSeed) {
+    setVisionSeed(seed);
+    setVisionSeedVersion((v) => v + 1);
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -146,10 +155,27 @@ export default function NewCampaignPage() {
         })}
       </div>
 
+      <VisionSeedUploader
+        className="animate-fade-up"
+        onApply={applyVisionSeed}
+      />
+
       {/* Active form */}
       <div key={mode} className="animate-fade-up">
-        {mode === "all" && <AllInOneForm router={router} />}
-        {mode === "strategy" && <StrategyOnlyForm router={router} />}
+        {mode === "all" && (
+          <AllInOneForm
+            router={router}
+            visionSeed={visionSeed}
+            visionSeedVersion={visionSeedVersion}
+          />
+        )}
+        {mode === "strategy" && (
+          <StrategyOnlyForm
+            router={router}
+            visionSeed={visionSeed}
+            visionSeedVersion={visionSeedVersion}
+          />
+        )}
       </div>
 
       {/* Standalone-assets callout */}
@@ -226,10 +252,21 @@ function fillExample(value: string) {
 /* ============================================================
    All-in-one
    ============================================================ */
+function isoToDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function AllInOneForm({
   router,
+  visionSeed,
+  visionSeedVersion,
 }: {
   router: ReturnType<typeof useRouter>;
+  visionSeed: VisionCampaignSeed | null;
+  visionSeedVersion: number;
 }) {
   const [title, setTitle] = useState("React Workshop Campaign");
   const [goal, setGoal] = useState(
@@ -239,6 +276,16 @@ function AllInOneForm({
   const [audience, setAudience] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visionSeed || visionSeedVersion === 0) return;
+    setTitle(visionSeed.title);
+    setGoal(visionSeed.goal);
+    setAudience(visionSeed.audience);
+    if (visionSeed.event_date) {
+      setEventDate(isoToDatetimeLocal(visionSeed.event_date));
+    }
+  }, [visionSeed, visionSeedVersion]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -327,12 +374,25 @@ function AllInOneForm({
    ============================================================ */
 function StrategyOnlyForm({
   router,
+  visionSeed,
+  visionSeedVersion,
 }: {
   router: ReturnType<typeof useRouter>;
+  visionSeed: VisionCampaignSeed | null;
+  visionSeedVersion: number;
 }) {
+  const [title, setTitle] = useState("");
   const [goal, setGoal] = useState("");
+  const [audience, setAudience] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visionSeed || visionSeedVersion === 0) return;
+    setTitle(visionSeed.title);
+    setGoal(visionSeed.goal);
+    setAudience(visionSeed.audience);
+  }, [visionSeed, visionSeedVersion]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -345,8 +405,9 @@ function StrategyOnlyForm({
           method: "POST",
           body: JSON.stringify({
             mode: "strategy",
-            title: derivedTitle(goal),
+            title: title.trim() || derivedTitle(goal),
             goal_prompt: goal,
+            audience: audience || null,
           }),
         },
       );
@@ -367,6 +428,16 @@ function StrategyOnlyForm({
       loading={loading}
       error={error}
     >
+      <TextField
+        name="title"
+        label="Campaign title"
+        leftIcon={<Type className="h-4 w-4" />}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Filled from your sketch or type your own"
+        hint="Optional — we derive one from your goal if blank"
+      />
+
       <Textarea
         id="goal"
         name="goal"
@@ -378,6 +449,16 @@ function StrategyOnlyForm({
         required
         rows={5}
         hint="Output: 2 weeks of tweets, LinkedIn posts, and email beats."
+      />
+
+      <TextField
+        name="audience"
+        label="Audience"
+        leftIcon={<Users className="h-4 w-4" />}
+        value={audience}
+        onChange={(e) => setAudience(e.target.value)}
+        placeholder="e.g. indie founders, local parents"
+        hint="Optional — from vision scan or type manually"
       />
     </FormShell>
   );

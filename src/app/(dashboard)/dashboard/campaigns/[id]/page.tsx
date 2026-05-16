@@ -23,7 +23,7 @@ import { AssetGenerationPanel } from "@/components/campaign/AssetGenerationPanel
 import { AddAssetModal } from "@/components/campaign/AddAssetModal";
 import { StrategyTimeline } from "@/components/campaign/StrategyTimeline";
 import { ParticipantsList } from "@/components/campaign/ParticipantsList";
-import { AnnouncementsPanel } from "@/components/campaign/AnnouncementsPanel";
+import { AttendeeCommunicationsPanel } from "@/components/campaign/AttendeeCommunicationsPanel";
 import { ShareLinksPanel } from "@/components/campaign/ShareLinksPanel";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Section } from "@/components/ui/Section";
@@ -51,6 +51,7 @@ export default function CampaignDetailPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
+  const [loadingFromStrategy, setLoadingFromStrategy] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -101,6 +102,45 @@ export default function CampaignDetailPage() {
     } finally {
       setLoadingAssets(false);
     }
+  }
+
+  async function generateFromStrategy(kind: AssetKind | "both" = "both") {
+    setLoadingFromStrategy(true);
+    try {
+      await apiFetch(`/api/campaigns/${id}/assets/strategy`, {
+        method: "POST",
+        body: JSON.stringify({ kind }),
+      });
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to generate from strategy",
+      );
+    } finally {
+      setLoadingFromStrategy(false);
+    }
+  }
+
+  async function fillAssetFromStrategy(kind: AssetKind) {
+    const data = await apiFetch<{
+      flyer?: FlyerInput;
+      voice?: VoiceoverInput;
+    }>(`/api/campaigns/${id}/assets/strategy`, {
+      method: "POST",
+      body: JSON.stringify({ kind, preview: true }),
+    });
+    if (kind === "flyer" && data.flyer) {
+      return {
+        prompt: data.flyer.prompt,
+        headline: data.flyer.headline,
+        subtext: data.flyer.subtext,
+        label: data.flyer.label,
+      };
+    }
+    if (kind === "voiceover" && data.voice) {
+      return { script: data.voice.script, label: data.voice.label };
+    }
+    throw new Error("No strategy brief available");
   }
 
   async function addCustomAsset(payload: {
@@ -291,9 +331,12 @@ export default function CampaignDetailPage() {
             <AssetGenerationPanel
               assets={assets}
               loading={loadingAssets}
+              loadingFromStrategy={loadingFromStrategy}
+              hasStrategy={Boolean(campaign.strategy_json)}
               actions={{
                 onAdd: (k) => setAddingKind(k),
                 onGenerateBoth: generateBoth,
+                onGenerateFromStrategy: generateFromStrategy,
                 onRegenerate: regenerateAsset,
                 onDelete: deleteAsset,
               }}
@@ -311,12 +354,15 @@ export default function CampaignDetailPage() {
           {event && (
             <Section
               icon={<Mail className="h-4 w-4" />}
-              title="Updates & messages"
-              description="Broadcast to everyone registered for this event"
+              title="Attendee communications"
+              description="Scheduled reminders and instant broadcasts"
             >
-              <AnnouncementsPanel
+              <AttendeeCommunicationsPanel
                 eventId={event.id}
+                campaignId={id}
                 attendeeCount={event.attendee_count}
+                eventDate={event.event_date ?? null}
+                eventTitle={event.landing.headline}
               />
             </Section>
           )}
@@ -476,9 +522,11 @@ export default function CampaignDetailPage() {
       <AddAssetModal
         open={addingKind !== null}
         kind={addingKind}
+        hasStrategy={Boolean(campaign?.strategy_json)}
         onClose={() => setAddingKind(null)}
         onSubmit={addCustomAsset}
         onGenerateScript={generateScript}
+        onFillFromStrategy={fillAssetFromStrategy}
       />
     </div>
   );

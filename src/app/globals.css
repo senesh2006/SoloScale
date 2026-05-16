@@ -163,6 +163,12 @@ body {
   to { transform: scaleX(1); opacity: 1; }
 }
 
+@keyframes scan-line {
+  0% { top: 0; opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { top: 100%; opacity: 0.6; }
+}
+
 @keyframes confetti {
   0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
   100% { transform: translate(var(--dx, 40px), var(--dy, -120px)) rotate(720deg); opacity: 0; }
@@ -182,6 +188,7 @@ body {
 .animate-glow { animation: glow 2.4s ease-in-out infinite; }
 .animate-ping-soft { animation: ping-soft 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
 .animate-tab-slide { animation: tab-slide 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-scan-line { animation: scan-line 1.4s ease-in-out infinite; }
 
 /* Stagger delays */
 .stagger-0 { animation-delay: 0ms; }

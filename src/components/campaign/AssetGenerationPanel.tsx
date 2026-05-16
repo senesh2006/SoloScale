@@ -14,6 +14,7 @@ import {
   Trash2,
   Mic,
   Wand2,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +23,7 @@ import { Button } from "@/components/ui/Button";
 type Actions = {
   onAdd: (kind: AssetKind) => void;
   onGenerateBoth: () => void | Promise<void>;
+  onGenerateFromStrategy?: (kind?: AssetKind | "both") => void | Promise<void>;
   onRegenerate: (assetId: string) => void | Promise<void>;
   onDelete: (assetId: string) => void | Promise<void>;
 };
@@ -30,10 +32,14 @@ export function AssetGenerationPanel({
   assets,
   actions,
   loading,
+  hasStrategy,
+  loadingFromStrategy,
 }: {
   assets: Asset[];
   actions: Actions;
   loading?: boolean;
+  hasStrategy?: boolean;
+  loadingFromStrategy?: boolean;
 }) {
   const flyers = assets.filter((a) => a.kind === "flyer");
   const voiceovers = assets.filter((a) => a.kind === "voiceover");
@@ -42,7 +48,10 @@ export function AssetGenerationPanel({
     return (
       <EmptyState
         loading={loading}
+        loadingFromStrategy={loadingFromStrategy}
+        hasStrategy={hasStrategy}
         onGenerateBoth={actions.onGenerateBoth}
+        onGenerateFromStrategy={actions.onGenerateFromStrategy}
         onAdd={actions.onAdd}
       />
     );
@@ -50,29 +59,102 @@ export function AssetGenerationPanel({
 
   return (
     <div className="space-y-8">
+      {hasStrategy && actions.onGenerateFromStrategy ? (
+        <StrategyAssetBar
+          loading={loadingFromStrategy}
+          onGenerate={(kind) => actions.onGenerateFromStrategy?.(kind)}
+        />
+      ) : null}
       <AssetGroup
         title="Flyers"
         kind="flyer"
         items={flyers}
         actions={actions}
+        hasStrategy={hasStrategy}
+        onGenerateFromStrategy={actions.onGenerateFromStrategy}
+        loadingFromStrategy={loadingFromStrategy}
       />
       <AssetGroup
         title="Voiceovers"
         kind="voiceover"
         items={voiceovers}
         actions={actions}
+        hasStrategy={hasStrategy}
+        onGenerateFromStrategy={actions.onGenerateFromStrategy}
+        loadingFromStrategy={loadingFromStrategy}
       />
+    </div>
+  );
+}
+
+function StrategyAssetBar({
+  loading,
+  onGenerate,
+}: {
+  loading?: boolean;
+  onGenerate: (kind: AssetKind | "both") => void | Promise<void>;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white to-fuchsia-50/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-sm">
+          <Calendar className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-zinc-900">
+            Generate from strategy
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-600">
+            Flyer and voiceover copy pulled from your calendar and event page.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="dark"
+          size="sm"
+          loading={loading}
+          leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+          onClick={() => onGenerate("both")}
+        >
+          Both from strategy
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={loading}
+          leftIcon={<ImageIcon className="h-3.5 w-3.5" />}
+          onClick={() => onGenerate("flyer")}
+        >
+          Flyer
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={loading}
+          leftIcon={<Mic className="h-3.5 w-3.5" />}
+          onClick={() => onGenerate("voiceover")}
+        >
+          Voice
+        </Button>
+      </div>
     </div>
   );
 }
 
 function EmptyState({
   loading,
+  loadingFromStrategy,
+  hasStrategy,
   onGenerateBoth,
+  onGenerateFromStrategy,
   onAdd,
 }: {
   loading?: boolean;
+  loadingFromStrategy?: boolean;
+  hasStrategy?: boolean;
   onGenerateBoth: () => void | Promise<void>;
+  onGenerateFromStrategy?: (kind?: AssetKind | "both") => void | Promise<void>;
   onAdd: (kind: AssetKind) => void;
 }) {
   return (
@@ -87,39 +169,51 @@ function EmptyState({
         Tell the AI what you want and it&apos;ll draft it.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
+        {hasStrategy && onGenerateFromStrategy ? (
+          <Button
+            variant="dark"
+            loading={loadingFromStrategy}
+            leftIcon={<Calendar className="h-4 w-4" />}
+            onClick={() => onGenerateFromStrategy("both")}
+          >
+            Generate from strategy
+          </Button>
+        ) : null}
         <Button
-          variant="dark"
+          variant={hasStrategy ? "outline" : "dark"}
           leftIcon={<ImageIcon className="h-4 w-4" />}
           onClick={() => onAdd("flyer")}
         >
-          Generate flyer
+          Custom flyer
         </Button>
         <Button
           variant="outline"
           leftIcon={<Mic className="h-4 w-4" />}
           onClick={() => onAdd("voiceover")}
         >
-          Generate voiceover
+          Custom voiceover
         </Button>
       </div>
-      <button
-        type="button"
-        onClick={onGenerateBoth}
-        disabled={loading}
-        className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-zinc-500 underline-offset-4 transition-colors hover:text-zinc-900 hover:underline disabled:opacity-60"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Generating defaults…
-          </>
-        ) : (
-          <>
-            <Sparkles className="h-3 w-3" />
-            or generate both with defaults
-          </>
-        )}
-      </button>
+      {!hasStrategy ? (
+        <button
+          type="button"
+          onClick={onGenerateBoth}
+          disabled={loading}
+          className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-zinc-500 underline-offset-4 transition-colors hover:text-zinc-900 hover:underline disabled:opacity-60"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Generating defaults…
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-3 w-3" />
+              or generate both with defaults
+            </>
+          )}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -129,16 +223,22 @@ function AssetGroup({
   kind,
   items,
   actions,
+  hasStrategy,
+  onGenerateFromStrategy,
+  loadingFromStrategy,
 }: {
   title: string;
   kind: AssetKind;
   items: Asset[];
   actions: Actions;
+  hasStrategy?: boolean;
+  onGenerateFromStrategy?: (kind?: AssetKind | "both") => void | Promise<void>;
+  loadingFromStrategy?: boolean;
 }) {
   const Icon = kind === "flyer" ? ImageIcon : Music;
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-violet-600" />
           <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
@@ -148,14 +248,27 @@ function AssetGroup({
             {items.length}
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          leftIcon={<Plus className="h-3.5 w-3.5" />}
-          onClick={() => actions.onAdd(kind)}
-        >
-          Add {kind === "flyer" ? "flyer" : "voiceover"}
-        </Button>
+        <div className="flex flex-wrap gap-1">
+          {hasStrategy && onGenerateFromStrategy ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loadingFromStrategy}
+              leftIcon={<Calendar className="h-3.5 w-3.5" />}
+              onClick={() => onGenerateFromStrategy(kind)}
+            >
+              From strategy
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<Plus className="h-3.5 w-3.5" />}
+            onClick={() => actions.onAdd(kind)}
+          >
+            Custom
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

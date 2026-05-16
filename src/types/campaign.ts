@@ -99,6 +99,24 @@ export type Announcement = {
   channel?: "email" | "in_app";
 };
 
+export type ReminderStatus = "scheduled" | "sent" | "cancelled";
+
+export type ReminderPresetId = "7d" | "24h" | "1h" | "custom";
+
+export type EventReminder = {
+  id: string;
+  event_id: string;
+  preset_id: ReminderPresetId | null;
+  label: string;
+  scheduled_for: string;
+  subject: string;
+  body: string;
+  status: ReminderStatus;
+  enabled: boolean;
+  channel?: "email" | "in_app";
+  sent_at?: string | null;
+};
+
 export type Currency = "USD" | "EUR" | "GBP" | "INR" | "LKR";
 
 export type EventPrice = {

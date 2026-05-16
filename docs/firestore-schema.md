@@ -28,7 +28,7 @@ Collections mirror the TypeScript types in `src/types/campaign.ts` and `src/type
 
 - **IDs** are auto-generated Firestore IDs unless noted.
 - **Timestamps** are Firestore `Timestamp` server-side; the API serializes them to ISO strings.
-- **Money** is always stored as integer cents in a separate `currency` field — never floats.
+- **Money**: `events.price` stores `whole` + `cents` (0–99) plus `currency`. Other snapshots (e.g. attendee `amount_cents`) use total integer cents — never floats.
 - **Soft-delete** is not used; deletes are hard.
 - **Owner reference**: every collection that belongs to a user denormalizes `user_id` on the doc itself, so security rules don't need extra lookups.
 - **Optimistic concurrency**: any client edit of `campaigns.strategy_json` sends `if_updated_at` matching the last-seen `updated_at`. The PATCH route compares before writing and returns 409 on mismatch.
@@ -43,10 +43,11 @@ Created on first login. `uid` matches Firebase Auth.
 
 | Field | Type | Notes |
 |---|---|---|
+| `user` | string | Login username (unique) |
+| `password` | string | Login password — hash before persisting in production |
 | `email` | string | From Auth |
 | `name` | string | Display name |
 | `avatar_url` | string \| null | Optional |
-| `plan_id` | string | `free` \| `pro` \| `team` |
 | `subscription_id` | string \| null | Reference into `subscriptions` |
 | `default_payment_method_id` | string \| null | Reference into `payment_methods` |
 | `stripe_customer_id` | string \| null | Set once Stripe is wired up |
@@ -55,10 +56,11 @@ Created on first login. `uid` matches Firebase Auth.
 
 ```json
 {
+  "user": "senesh",
+  "password": "••••••••",
   "email": "senesh@example.com",
   "name": "Senesh Fernando",
   "avatar_url": null,
-  "plan_id": "free",
   "subscription_id": null,
   "default_payment_method_id": "pm_1",
   "stripe_customer_id": null,
@@ -148,7 +150,6 @@ Created on first login. `uid` matches Firebase Auth.
 | `media` | map | `{ hero_url?, gallery_urls? }` — hero wallpaper + extra photos |
 | `sponsors` | array | List of sponsors (see below) |
 | `sponsors_display` | string | `grid` \| `carousel` — how sponsors render on the landing page |
-| `attendee_count` | number | Server-incremented on registration — denormalized counter |
 | `price` | map \| null | `null` = free event. See below. |
 | `created_at` | timestamp | |
 | `updated_at` | timestamp | |
@@ -157,7 +158,8 @@ Created on first login. `uid` matches Firebase Auth.
 
 | Field | Type | Notes |
 |---|---|---|
-| `amount_cents` | number | Integer cents |
+| `whole` | number | Integer part of the price (e.g. `25` for $25.50) |
+| `cents` | number | Fractional cents, `0`–`99` (e.g. `50` for $25.50) |
 | `currency` | string | `USD` \| `EUR` \| `GBP` \| `INR` \| `LKR` |
 
 #### `media` shape
@@ -182,7 +184,7 @@ Created on first login. `uid` matches Firebase Auth.
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | Stable client-generated ID — also used as the metadata key on attendees |
+| `id` | string | Stable client-generated ID |
 | `type` | string | `text` \| `textarea` \| `email` \| `phone` \| `url` \| `number` \| `date` \| `select` \| `checkbox` |
 | `label` | string | Shown above the input |
 | `required` | boolean | |
@@ -237,8 +239,7 @@ Created on first login. `uid` matches Firebase Auth.
     }
   ],
   "sponsors_display": "grid",
-  "attendee_count": 42,
-  "price": { "amount_cents": 2500, "currency": "USD" },
+  "price": { "whole": 25, "cents": 0, "currency": "USD" },
   "created_at": "2026-05-14T09:00:00Z",
   "updated_at": "2026-05-14T09:00:00Z"
 }
@@ -252,7 +253,7 @@ Created on first login. `uid` matches Firebase Auth.
 
 | Field | Type | Notes |
 |---|---|---|
-| `campaign_id` | string | Parent campaign |
+| `event_id` | string | Parent event |
 | `user_id` | string | Denormalized for security rules |
 | `kind` | string | `flyer` \| `voiceover` |
 | `status` | string | `pending` \| `processing` \| `ready` \| `failed` |
@@ -264,7 +265,7 @@ Created on first login. `uid` matches Firebase Auth.
 
 ```json
 {
-  "campaign_id": "camp_demo_react",
+  "event_id": "evt_xyz789",
   "user_id": "u_abc123",
   "kind": "flyer",
   "status": "ready",
@@ -282,41 +283,31 @@ Created on first login. `uid` matches Firebase Auth.
 
 | Field | Type | Notes |
 |---|---|---|
-| `event_id` | string | Parent event |
+| `event_ids` | string[] | Events this person is registered for — one attendee can attend many |
 | `name` | string | |
-| `email` | string | Lowercased on write — used as the dedupe key per event |
+| `email` | string | Lowercased on write — used as the dedupe key when adding an event |
 | `ticket_code` | string | Unique, human-readable (e.g. `TKT-A4F2-X8L9`). Used to look up the public ticket page at `/t/{code}`. |
-| `metadata` | map | Custom form-field answers. Keys can be the field `id` or the field `label` — both are accepted. |
-| `paid` | boolean | `true` if registered via paid checkout |
-| `payment_id` | string \| null | Reference into `payments` for paid registrations |
+| `payment_ids` | string[] | References into `payments` — one entry per paid registration |
 | `amount_cents` | number \| null | Snapshot of price paid (in case event price changes later) |
 | `currency` | string \| null | Snapshot of currency |
 | `created_at` | timestamp | |
 
 ```json
 {
-  "event_id": "evt_xyz789",
+  "event_ids": ["evt_xyz789", "evt_abc456"],
   "name": "Maya Chen",
   "email": "maya@example.com",
   "ticket_code": "TKT-A4F2-X8L9",
-  "metadata": {
-    "Company": "Founder.cafe",
-    "T-Shirt Size": "M",
-    "Newsletter": "true"
-  },
-  "paid": true,
-  "payment_id": "pay_abc123",
+  "payment_ids": ["pay_abc123"],
   "amount_cents": 2500,
   "currency": "USD",
   "created_at": "2026-05-16T16:42:00Z"
 }
 ```
 
-> **Counter**: bump `events.attendee_count` in the same transaction.
->
 > **Ticket codes** must be globally unique within `attendees`. Generate with 8 base-32 chars (32^8 ≈ 1 trillion combinations) and retry on collision. Alphabet excludes ambiguous chars (`0`, `1`, `I`, `O`).
 >
-> **Re-registration** with the same email + event is idempotent — return the existing attendee + ticket code instead of creating a new row.
+> **Re-registration** with the same email for an event already in `event_ids` is idempotent — return the existing attendee + ticket code instead of appending the event again.
 
 ---
 
@@ -330,7 +321,7 @@ Broadcast emails sent from the campaign dashboard to an event's attendees. The d
 | `subject` | string | 2–140 chars |
 | `body` | string | Plain text. Length validated `>= 4` chars in the API. |
 | `channel` | string | `email` \| `in_app` — defaults to `email` |
-| `recipient_count` | number | Snapshot of `events.attendee_count` at send time |
+| `recipient_count` | number | Count of attendees whose `event_ids` includes this event at send time |
 | `sent_at` | timestamp | When the send was kicked off (not when each email landed) |
 | `scheduled_for` | timestamp \| null | Reserved for future use — send-later support |
 | `created_by` | string | UID of the user who composed it |
