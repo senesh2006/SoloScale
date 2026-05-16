@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import type {
@@ -90,7 +90,11 @@ const FIELD_TYPE_META: Record<
 };
 
 export default function EventEditPage() {
-  const { id: campaignId } = useParams<{ id: string }>();
+  const { id: campaignId, eventId: eventIdParam } = useParams<{
+    id: string;
+    eventId?: string;
+  }>();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [saving, setSaving] = useState(false);
@@ -99,14 +103,15 @@ export default function EventEditPage() {
   >("content");
 
   useEffect(() => {
-    apiFetch<{ campaign: Campaign }>(`/api/campaigns/${campaignId}`)
-      .then(({ campaign }) => {
-        if (!campaign.event_id) return;
-        return apiFetch<{ event: Event }>(`/api/events/${campaign.event_id}`);
-      })
-      .then((res) => res && setEvent(res.event))
+    const eventId =
+      eventIdParam ??
+      searchParams.get("eventId") ??
+      null;
+    if (!eventId) return;
+    apiFetch<{ event: Event }>(`/api/events/${eventId}`)
+      .then((res) => setEvent(res.event))
       .catch(console.error);
-  }, [campaignId]);
+  }, [campaignId, eventIdParam, searchParams]);
 
   async function save() {
     if (!event) return;
@@ -125,7 +130,7 @@ export default function EventEditPage() {
           location: event.location ?? null,
         }),
       });
-      router.push(`/dashboard/campaigns/${campaignId}`);
+      router.push(`/dashboard/campaigns/${campaignId}/events/${event.id}`);
     } finally {
       setSaving(false);
     }
@@ -273,12 +278,19 @@ export default function EventEditPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-20">
       <div className="flex items-center justify-between">
-        <button 
-          onClick={() => router.push(`/dashboard/campaigns/${campaignId}`)}
-          className="flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+        <button
+          type="button"
+          onClick={() =>
+            router.push(
+              event
+                ? `/dashboard/campaigns/${campaignId}/events/${event.id}`
+                : `/dashboard/campaigns/${campaignId}`,
+            )
+          }
+          className="flex items-center gap-2 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-900"
         >
           <ChevronLeft className="h-4 w-4" />
-          Back to Campaign
+          Back to event
         </button>
 
         <button

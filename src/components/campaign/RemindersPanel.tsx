@@ -157,7 +157,11 @@ export function RemindersPanel({
             automatic nudges.
           </p>
           <Link
-            href={`/dashboard/campaigns/${campaignId}/event/edit`}
+            href={
+              eventId
+                ? `/dashboard/campaigns/${campaignId}/events/${eventId}/edit`
+                : `/dashboard/campaigns/${campaignId}`
+            }
             className="mt-5 inline-flex"
           >
             <Button variant="dark" size="md">

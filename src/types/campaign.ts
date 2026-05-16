@@ -37,6 +37,8 @@ export type Campaign = {
   created_at: string;
   updated_at: string;
   event_id: string | null;
+  /** All event pages under this campaign */
+  event_ids: string[];
 };
 
 export type AssetKind = "flyer" | "voiceover";

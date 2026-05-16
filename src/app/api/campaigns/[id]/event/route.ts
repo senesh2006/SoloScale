@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createEventForCampaign, getCampaign, useMocks } from "@/lib/mock-store";
+import {
+  createCampaignEvent,
+  getCampaign,
+  useMocks,
+} from "@/lib/mock-store";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,14 +27,8 @@ export async function POST(_request: Request, { params }: Params) {
       { status: 409 },
     );
   }
-  if (campaign.event_id) {
-    return NextResponse.json(
-      { error: "Campaign already has an event page" },
-      { status: 409 },
-    );
-  }
-
-  const event = createEventForCampaign(id);
+  const body = (await _request.json().catch(() => ({}))) as { title?: string };
+  const event = createCampaignEvent(id, { title: body.title });
   if (!event) {
     return NextResponse.json(
       { error: "Failed to create event" },

@@ -50,6 +50,7 @@ if (campaigns.size === 0) {
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
     updated_at: new Date(Date.now() - 86400000).toISOString(),
     event_id: eventId,
+    event_ids: [eventId],
   });
 
   events.set(eventId, {
@@ -202,6 +203,7 @@ export function createCampaign(input: {
     created_at: now,
     updated_at: now,
     event_id: null,
+    event_ids: [],
   };
   campaigns.set(id, campaign);
 
@@ -217,6 +219,7 @@ export function createCampaign(input: {
         status: "strategy_ready",
         strategy_json: strategy,
         event_id: eventId,
+        event_ids: eventId ? [eventId] : [],
         updated_at: new Date().toISOString(),
       });
     }, 800);
@@ -228,6 +231,7 @@ export function createCampaign(input: {
       status: "strategy_ready",
       strategy_json: input.strategy,
       event_id: eventId,
+      event_ids: eventId ? [eventId] : [],
       updated_at: new Date().toISOString(),
     });
   }
@@ -258,18 +262,77 @@ function buildEventFromStrategy(
   return eventId;
 }
 
-export function createEventForCampaign(campaignId: string): Event | undefined {
-  const campaign = campaigns.get(campaignId);
-  if (!campaign || !campaign.strategy_json) return undefined;
-  if (campaign.event_id) return events.get(campaign.event_id);
+export function getCampaignEventIds(campaign: Campaign): string[] {
+  if (campaign.event_ids?.length) return campaign.event_ids;
+  if (campaign.event_id) return [campaign.event_id];
+  return [];
+}
 
-  const eventId = buildEventFromStrategy(
-    campaignId,
-    campaign.title,
-    campaign.strategy_json,
-  );
-  campaigns.set(campaignId, { ...campaign, event_id: eventId });
-  return events.get(eventId);
+export function listEventsForCampaign(campaignId: string): Event[] {
+  const campaign = campaigns.get(campaignId);
+  if (!campaign) return [];
+  return getCampaignEventIds(campaign)
+    .map((eventId) => events.get(eventId))
+    .filter((e): e is Event => Boolean(e));
+}
+
+function uniqueEventSlug(base: string): string {
+  let slug = slugify(base) || "event";
+  if (!Array.from(events.values()).some((e) => e.slug === slug)) return slug;
+  let n = 2;
+  while (Array.from(events.values()).some((e) => e.slug === `${slug}-${n}`)) {
+    n += 1;
+  }
+  return `${slug}-${n}`;
+}
+
+export function createCampaignEvent(
+  campaignId: string,
+  input: { title?: string } = {},
+): Event | undefined {
+  const campaign = campaigns.get(campaignId);
+  if (!campaign?.strategy_json) return undefined;
+
+  const strategy = campaign.strategy_json;
+  const existing = listEventsForCampaign(campaignId);
+  const n = existing.length + 1;
+  const label = input.title?.trim() || campaign.title;
+  const headline =
+    input.title?.trim() ||
+    (n > 1
+      ? `${strategy.event_draft.headline} (${n})`
+      : strategy.event_draft.headline);
+
+  const eventId = uid("evt");
+  const event: Event = {
+    id: eventId,
+    campaign_id: campaignId,
+    slug: uniqueEventSlug(label),
+    published: false,
+    landing: {
+      headline,
+      subhead: strategy.event_draft.subhead,
+      body_md: strategy.event_draft.body_md,
+    },
+    form_fields: [...strategy.event_draft.form_fields],
+    attendee_count: 0,
+  };
+  events.set(eventId, event);
+
+  const eventIds = [...getCampaignEventIds(campaign), eventId];
+  campaigns.set(campaignId, {
+    ...campaign,
+    event_ids: eventIds,
+    event_id: eventId,
+    updated_at: new Date().toISOString(),
+  });
+
+  return event;
+}
+
+/** @deprecated Use createCampaignEvent — kept for existing route */
+export function createEventForCampaign(campaignId: string): Event | undefined {
+  return createCampaignEvent(campaignId);
 }
 
 export type UpdateStrategyResult =
@@ -294,11 +357,16 @@ export function updateCampaignStrategy(
     eventId = buildEventFromStrategy(id, campaign.title, strategy);
   }
 
+  const priorIds = getCampaignEventIds(campaign);
+  const event_ids =
+    eventId && !priorIds.includes(eventId) ? [...priorIds, eventId] : priorIds;
+
   const updated: Campaign = {
     ...campaign,
     status: "strategy_ready",
     strategy_json: strategy,
-    event_id: eventId,
+    event_id: eventId ?? campaign.event_id,
+    event_ids,
     updated_at: new Date().toISOString(),
   };
   campaigns.set(id, updated);
