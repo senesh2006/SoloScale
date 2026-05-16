@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import type { Event } from "@/types/campaign";
+import type { Attendee, Event, Sponsor } from "@/types/campaign";
 import {
   CheckCircle2,
   Calendar,
@@ -15,10 +15,14 @@ import {
   Lock,
   Ticket,
   Tag,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { Spinner } from "@/components/ui/Spinner";
+import { Countdown } from "@/components/event/Countdown";
+import { TicketCard } from "@/components/event/TicketCard";
+import { FormFieldInput } from "@/components/event/FormFieldInput";
 import {
   CheckoutModal,
   type CheckoutItem,
@@ -33,6 +37,7 @@ export default function PublicEventPage() {
   const [email, setEmail] = useState("");
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [done, setDone] = useState(false);
+  const [registeredAttendee, setRegisteredAttendee] = useState<Attendee | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -57,17 +62,29 @@ export default function PublicEventPage() {
 
   async function finalizeRegistration() {
     if (!event) return;
-    await apiFetch(`/api/events/slug/${slug}/register`, {
-      method: "POST",
-      body: JSON.stringify({
-        name,
-        email,
-        metadata: {
-          ...customFields,
-          ...(isPaid ? { paid: "true", amount_cents: String(event.price?.amount_cents) } : {}),
-        },
-      }),
-    });
+    const fieldMetadata = Object.fromEntries(
+      event.form_fields.map((f) => [f.label, customFields[f.id] ?? ""]),
+    );
+    const res = await apiFetch<{ attendee: Attendee }>(
+      `/api/events/slug/${slug}/register`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          email,
+          metadata: {
+            ...fieldMetadata,
+            ...(isPaid
+              ? {
+                  paid: "true",
+                  amount_cents: String(event.price?.amount_cents),
+                }
+              : {}),
+          },
+        }),
+      },
+    );
+    setRegisteredAttendee(res.attendee);
     setDone(true);
   }
 
@@ -125,6 +142,11 @@ export default function PublicEventPage() {
     );
   }
 
+  const heroUrl = event.media?.hero_url;
+  const gallery = event.media?.gallery_urls ?? [];
+  const sponsors = event.sponsors ?? [];
+  const sponsorMode = event.sponsors_display ?? "grid";
+
   return (
     <div className="relative min-h-screen bg-white text-zinc-950 selection:bg-violet-100 selection:text-violet-900">
       <div
@@ -134,7 +156,24 @@ export default function PublicEventPage() {
         <div className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-violet-200 via-fuchsia-200 to-indigo-300 opacity-30 sm:left-[calc(50%-30rem)] sm:w-[72rem]" />
       </div>
 
-      <main className="mx-auto max-w-5xl px-6 py-20 sm:py-28">
+      {heroUrl && (
+        <div className="relative h-72 w-full overflow-hidden sm:h-96">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={heroUrl}
+            alt={event.landing.headline}
+            className="h-full w-full object-cover"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-zinc-950/30 via-transparent to-white" />
+        </div>
+      )}
+
+      <main
+        className={cn(
+          "mx-auto max-w-5xl px-6 py-20 sm:py-28",
+          heroUrl && "pt-12 sm:pt-16",
+        )}
+      >
         <div className="grid gap-12 lg:grid-cols-5">
           <div className="space-y-8 lg:col-span-3">
             <div className="space-y-5 animate-fade-up">
@@ -175,17 +214,37 @@ export default function PublicEventPage() {
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-zinc-100 pt-6 text-sm text-zinc-500 animate-fade-up stagger-2">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-zinc-400" />
-                Date announced soon
+                {event.event_date
+                  ? new Date(event.event_date).toLocaleString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })
+                  : "Date announced soon"}
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-zinc-400" />
-                Virtual event
+                {event.location || "Virtual event"}
               </div>
               <div className="flex items-center gap-2">
                 <UsersIcon className="h-4 w-4 text-zinc-400" />
                 {event.attendee_count} attendees registered
               </div>
             </div>
+
+            {event.event_date && (
+              <div className="rounded-2xl border border-zinc-100 bg-gradient-to-br from-white to-zinc-50 p-5 shadow-sm animate-fade-up stagger-3">
+                <div className="mb-3 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-violet-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                    Starts in
+                  </span>
+                </div>
+                <Countdown target={event.event_date} />
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-2 animate-fade-up stagger-2">
@@ -209,34 +268,35 @@ export default function PublicEventPage() {
               )}
 
               <div className="p-7">
-                {done ? (
-                  <div className="space-y-5 py-2 text-center">
-                    <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
-                      <CheckCircle2 className="h-7 w-7" />
-                      <span className="absolute inset-0 rounded-2xl ring-2 ring-emerald-300 animate-ping-soft" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-zinc-950">
+                {done && registeredAttendee ? (
+                  <div className="space-y-5">
+                    <div className="text-center">
+                      <div className="relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                        <CheckCircle2 className="h-6 w-6" />
+                        <span className="absolute inset-0 rounded-2xl ring-2 ring-emerald-300 animate-ping-soft" />
+                      </div>
+                      <h3 className="mt-3 text-lg font-semibold text-zinc-950">
                         You're in!
                       </h3>
-                      <p className="mt-1 text-sm text-zinc-500">
-                        {isPaid
-                          ? "Payment received. Your ticket is on the way to "
-                          : "Confirmation sent to "}
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Confirmation + ticket sent to{" "}
                         <span className="font-medium text-violet-700">
                           {email}
                         </span>
-                        .
                       </p>
                     </div>
+
+                    <TicketCard attendee={registeredAttendee} event={event} />
+
                     <button
                       onClick={() => {
                         setDone(false);
+                        setRegisteredAttendee(null);
                         setName("");
                         setEmail("");
                         setCustomFields({});
                       }}
-                      className="text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-900 hover:underline"
+                      className="block w-full text-center text-xs font-medium text-zinc-500 underline-offset-4 hover:text-zinc-900 hover:underline"
                     >
                       Register someone else
                     </button>
@@ -282,19 +342,16 @@ export default function PublicEventPage() {
                           return !isName && !isEmail;
                         })
                         .map((field) => (
-                          <TextField
+                          <FormFieldInput
                             key={field.id}
-                            label={field.label}
-                            type={field.type === "email" ? "email" : "text"}
-                            placeholder={`Enter ${field.label.toLowerCase()}`}
+                            field={field}
                             value={customFields[field.id] || ""}
-                            onChange={(e) =>
+                            onChange={(value) =>
                               setCustomFields({
                                 ...customFields,
-                                [field.id]: e.target.value,
+                                [field.id]: value,
                               })
                             }
-                            required={field.required}
                           />
                         ))}
 
@@ -339,6 +396,67 @@ export default function PublicEventPage() {
         </div>
       </main>
 
+      {gallery.length > 0 && (
+        <section className="mx-auto max-w-5xl px-6 pb-16">
+          <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+            Gallery
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {gallery.map((url, i) => (
+              <div
+                key={`${url}-${i}`}
+                className="group aspect-[4/3] overflow-hidden rounded-2xl bg-zinc-100 animate-fade-up"
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Event photo ${i + 1}`}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {sponsors.length > 0 && (
+        <section className="border-t border-zinc-100 bg-zinc-50/50">
+          <div className="mx-auto max-w-5xl px-6 py-16">
+            <div className="mb-8 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+                Brought to you by
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950">
+                Our sponsors
+              </h2>
+            </div>
+
+            {sponsorMode === "carousel" ? (
+              <div className="marquee">
+                <div className="marquee-track items-center">
+                  {[...sponsors, ...sponsors].map((s, i) => (
+                    <SponsorTile key={`${s.id}-${i}`} sponsor={s} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 items-center gap-6 sm:grid-cols-3 md:grid-cols-4">
+                {sponsors.map((s, i) => (
+                  <div
+                    key={s.id}
+                    className="animate-fade-up"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    <SponsorTile sponsor={s} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       <footer className="border-t border-zinc-100">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6 text-xs text-zinc-500">
           <div className="flex items-center gap-2">
@@ -359,4 +477,36 @@ export default function PublicEventPage() {
       />
     </div>
   );
+}
+
+function SponsorTile({ sponsor }: { sponsor: Sponsor }) {
+  const inner = (
+    <div className="flex h-20 items-center justify-center rounded-2xl border border-zinc-100 bg-white px-6 transition-all hover:-translate-y-0.5 hover:border-zinc-200 hover:shadow-md shrink-0 min-w-[180px]">
+      {sponsor.logo_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={sponsor.logo_url}
+          alt={sponsor.name}
+          className="max-h-10 max-w-[160px] object-contain opacity-80 transition-opacity hover:opacity-100"
+        />
+      ) : (
+        <span className="text-sm font-semibold text-zinc-700">
+          {sponsor.name}
+        </span>
+      )}
+    </div>
+  );
+  if (sponsor.website) {
+    return (
+      <a
+        href={sponsor.website}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="block"
+      >
+        {inner}
+      </a>
+    );
+  }
+  return inner;
 }

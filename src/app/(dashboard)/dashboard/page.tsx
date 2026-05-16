@@ -137,13 +137,13 @@ export default function DashboardPage() {
                 <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
                   {s.label}
                 </p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
+                <div className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
                   {loading ? (
                     <Skeleton className="h-8 w-16" />
                   ) : (
                     <CountUp value={s.value} />
                   )}
-                </p>
+                </div>
                 {s.delta ? (
                   <p
                     className={cn(
