@@ -15,10 +15,16 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Wand2,
+  Mail,
+  Share2,
 } from "lucide-react";
 import { AssetGenerationPanel } from "@/components/campaign/AssetGenerationPanel";
+import { AddAssetModal } from "@/components/campaign/AddAssetModal";
 import { StrategyTimeline } from "@/components/campaign/StrategyTimeline";
 import { ParticipantsList } from "@/components/campaign/ParticipantsList";
+import { AnnouncementsPanel } from "@/components/campaign/AnnouncementsPanel";
+import { ShareLinksPanel } from "@/components/campaign/ShareLinksPanel";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
@@ -27,7 +33,15 @@ import { Spinner } from "@/components/ui/Spinner";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/payment";
-import type { Asset, Campaign, Event, Attendee } from "@/types/campaign";
+import type {
+  Asset,
+  AssetKind,
+  Campaign,
+  Event,
+  Attendee,
+  FlyerInput,
+  VoiceoverInput,
+} from "@/types/campaign";
 
 export default function CampaignDetailPage() {
   const router = useRouter();
@@ -38,8 +52,10 @@ export default function CampaignDetailPage() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [creatingEvent, setCreatingEvent] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addingKind, setAddingKind] = useState<AssetKind | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -74,13 +90,65 @@ export default function CampaignDetailPage() {
     return () => clearInterval(timer);
   }, [load]);
 
-  async function generateAssets() {
+  async function generateBoth() {
     setLoadingAssets(true);
     try {
-      await apiFetch(`/api/campaigns/${id}/assets`, { method: "POST" });
+      await apiFetch(`/api/campaigns/${id}/assets`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
       await load();
     } finally {
       setLoadingAssets(false);
+    }
+  }
+
+  async function addCustomAsset(payload: {
+    kind: AssetKind;
+    flyer?: FlyerInput;
+    voice?: VoiceoverInput;
+  }) {
+    await apiFetch(`/api/campaigns/${id}/assets`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    await load();
+  }
+
+  async function regenerateAsset(assetId: string) {
+    await apiFetch(`/api/campaigns/${id}/assets/${assetId}/regenerate`, {
+      method: "POST",
+    });
+    await load();
+  }
+
+  async function deleteAsset(assetId: string) {
+    await apiFetch(`/api/campaigns/${id}/assets/${assetId}`, {
+      method: "DELETE",
+    });
+    await load();
+  }
+
+  async function generateScript(hint?: string): Promise<string> {
+    const { script } = await apiFetch<{ script: string }>(
+      `/api/campaigns/${id}/script`,
+      {
+        method: "POST",
+        body: JSON.stringify(hint ? { hint } : {}),
+      },
+    );
+    return script;
+  }
+
+  async function addEventPage() {
+    setCreatingEvent(true);
+    try {
+      await apiFetch(`/api/campaigns/${id}/event`, { method: "POST" });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add event page");
+    } finally {
+      setCreatingEvent(false);
     }
   }
 
@@ -177,6 +245,19 @@ export default function CampaignDetailPage() {
             icon={<Calendar className="h-4 w-4" />}
             title="Strategy timeline"
             description="Multi-channel posts queued for the next two weeks"
+            action={
+              campaign.strategy_json ? (
+                <Link href={`/dashboard/campaigns/${id}/strategy/edit`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<Wand2 className="h-3.5 w-3.5" />}
+                  >
+                    Edit strategy
+                  </Button>
+                </Link>
+              ) : undefined
+            }
           >
             <Card className="p-6">
               {campaign.strategy_json ? (
@@ -209,8 +290,13 @@ export default function CampaignDetailPage() {
           >
             <AssetGenerationPanel
               assets={assets}
-              onGenerate={generateAssets}
               loading={loadingAssets}
+              actions={{
+                onAdd: (k) => setAddingKind(k),
+                onGenerateBoth: generateBoth,
+                onRegenerate: regenerateAsset,
+                onDelete: deleteAsset,
+              }}
             />
           </Section>
 
@@ -221,6 +307,19 @@ export default function CampaignDetailPage() {
           >
             <ParticipantsList attendees={attendees} />
           </Section>
+
+          {event && (
+            <Section
+              icon={<Mail className="h-4 w-4" />}
+              title="Updates & messages"
+              description="Broadcast to everyone registered for this event"
+            >
+              <AnnouncementsPanel
+                eventId={event.id}
+                attendeeCount={event.attendee_count}
+              />
+            </Section>
+          )}
         </div>
 
         <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
@@ -327,17 +426,60 @@ export default function CampaignDetailPage() {
                   </div>
                 </div>
               </Card>
+            ) : campaign.strategy_json ? (
+              <Card className="p-6 text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                  <Globe className="h-5 w-5" />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-zinc-900">
+                  No event page yet
+                </p>
+                <p className="mt-1 text-xs leading-snug text-zinc-500">
+                  This campaign is strategy-only. Add a public landing page when
+                  you&apos;re ready to collect signups.
+                </p>
+                <Button
+                  variant="dark"
+                  className="mt-4 w-full"
+                  leftIcon={<Sparkles className="h-4 w-4" />}
+                  loading={creatingEvent}
+                  onClick={addEventPage}
+                >
+                  Add event page
+                </Button>
+              </Card>
             ) : (
               <Card className="p-8 text-center">
-                <Sparkles className="mx-auto h-5 w-5 text-zinc-300" />
+                <Sparkles className="mx-auto h-5 w-5 text-zinc-300 animate-pulse-soft" />
                 <p className="mt-3 text-sm text-zinc-500">
-                  Event details are being drafted by AI…
+                  AI agents are drafting your strategy…
                 </p>
               </Card>
             )}
           </Section>
+
+          {event && (
+            <Section
+              icon={<Share2 className="h-4 w-4" />}
+              title="Share links"
+              description="UTM-tagged URLs per channel"
+            >
+              <ShareLinksPanel
+                slug={event.slug}
+                campaignTitle={campaign.title}
+              />
+            </Section>
+          )}
         </aside>
       </div>
+
+      <AddAssetModal
+        open={addingKind !== null}
+        kind={addingKind}
+        onClose={() => setAddingKind(null)}
+        onSubmit={addCustomAsset}
+        onGenerateScript={generateScript}
+      />
     </div>
   );
 }

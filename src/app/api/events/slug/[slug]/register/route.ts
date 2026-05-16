@@ -21,6 +21,14 @@ export async function POST(request: Request, { params }: Params) {
 
   const name = (body.name as string)?.trim();
   const email = (body.email as string)?.trim();
+  const metadata =
+    body.metadata && typeof body.metadata === "object"
+      ? (Object.fromEntries(
+          Object.entries(body.metadata as Record<string, unknown>).map(
+            ([k, v]) => [k, String(v)],
+          ),
+        ) as Record<string, string>)
+      : undefined;
 
   if (!name || !email) {
     return NextResponse.json(
@@ -29,6 +37,9 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
-  const attendee = registerAttendee(event.id, { name, email });
-  return NextResponse.json({ attendee, event: getEventBySlug(slug) }, { status: 201 });
+  const attendee = registerAttendee(event.id, { name, email, metadata });
+  return NextResponse.json(
+    { attendee, event: getEventBySlug(slug) },
+    { status: 201 },
+  );
 }

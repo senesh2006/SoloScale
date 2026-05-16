@@ -4,6 +4,7 @@ import {
   listCampaigns,
   useMocks,
   updateCampaignStrategy,
+  type CreateCampaignMode,
 } from "@/lib/mock-store";
 import { generateCampaignStrategy } from "@/services/ai/gemini";
 
@@ -21,6 +22,8 @@ export async function POST(request: Request) {
   const body = await request.json();
   const title = (body.title as string)?.trim() || "New Campaign";
   const goal_prompt = (body.goal_prompt as string)?.trim();
+  const rawMode = body.mode as string | undefined;
+  const mode: CreateCampaignMode = rawMode === "strategy" ? "strategy" : "all";
 
   if (!goal_prompt) {
     return NextResponse.json(
@@ -36,21 +39,24 @@ export async function POST(request: Request) {
     );
   }
 
-  // 1. Create the campaign in "draft" status immediately
-  const campaign = createCampaign({ title, goal_prompt });
+  const campaign = createCampaign({ title, goal_prompt, mode });
 
-  // 2. Trigger Gemini generation in the background (fire and forget for now in mock mode)
-  // or await if we want to return the full campaign immediately.
-  // For the hackathon demo, we await so the UI redirects to a finished state.
   if (process.env.GEMINI_API_KEY) {
     try {
       const strategy = await generateCampaignStrategy({ title, goal_prompt });
-      updateCampaignStrategy(campaign.id, strategy);
+      const result = updateCampaignStrategy(campaign.id, strategy, {
+        withEvent: mode === "all",
+      });
+      if (!result.ok) {
+        console.error("Failed to persist generated strategy:", result.reason);
+      }
     } catch (err) {
       console.error("Gemini failed, falling back to mock:", err);
-      // Fallback is handled by createCampaign's default timeout if we didn't await
     }
   }
 
-  return NextResponse.json({ campaign: listCampaigns().find(c => c.id === campaign.id) }, { status: 201 });
+  return NextResponse.json(
+    { campaign: listCampaigns().find((c) => c.id === campaign.id) },
+    { status: 201 },
+  );
 }

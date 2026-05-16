@@ -1,6 +1,6 @@
 "use client";
 
-import type { Asset } from "@/types/campaign";
+import type { Asset, AssetKind } from "@/types/campaign";
 import {
   ImageIcon,
   Music,
@@ -10,88 +10,305 @@ import {
   Pause,
   Loader2,
   RefreshCw,
+  Plus,
+  Trash2,
+  Mic,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
+type Actions = {
+  onAdd: (kind: AssetKind) => void;
+  onGenerateBoth: () => void | Promise<void>;
+  onRegenerate: (assetId: string) => void | Promise<void>;
+  onDelete: (assetId: string) => void | Promise<void>;
+};
+
 export function AssetGenerationPanel({
   assets,
-  onGenerate,
+  actions,
   loading,
 }: {
   assets: Asset[];
-  onGenerate: () => void;
+  actions: Actions;
   loading?: boolean;
 }) {
-  const flyer = assets.find((a) => a.kind === "flyer");
-  const audio = assets.find((a) => a.kind === "voiceover");
-  const processing = assets.some((a) => a.status === "processing");
-  const allReady =
-    !!flyer && !!audio && flyer.status === "ready" && audio.status === "ready";
+  const flyers = assets.filter((a) => a.kind === "flyer");
+  const voiceovers = assets.filter((a) => a.kind === "voiceover");
+
+  if (assets.length === 0) {
+    return (
+      <EmptyState
+        loading={loading}
+        onGenerateBoth={actions.onGenerateBoth}
+        onAdd={actions.onAdd}
+      />
+    );
+  }
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-5 md:grid-cols-2">
-        <FlyerCard asset={flyer} />
-        <AudioCard asset={audio} />
-      </div>
-
-      {!flyer && !audio ? (
-        <Button
-          size="lg"
-          className="w-full"
-          loading={loading || processing}
-          leftIcon={!loading && !processing ? <Sparkles className="h-4 w-4" /> : undefined}
-          onClick={onGenerate}
-        >
-          {loading || processing ? "Generating assets" : "Generate creative assets"}
-        </Button>
-      ) : allReady ? (
-        <Button
-          variant="outline"
-          size="md"
-          className="w-full"
-          leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
-          onClick={onGenerate}
-          loading={loading}
-        >
-          Regenerate assets
-        </Button>
-      ) : null}
+    <div className="space-y-8">
+      <AssetGroup
+        title="Flyers"
+        kind="flyer"
+        items={flyers}
+        actions={actions}
+      />
+      <AssetGroup
+        title="Voiceovers"
+        kind="voiceover"
+        items={voiceovers}
+        actions={actions}
+      />
     </div>
   );
 }
 
-function FlyerCard({ asset }: { asset?: Asset }) {
-  const ready = asset?.status === "ready" && asset.url;
-  const processing = asset?.status === "processing";
+function EmptyState({
+  loading,
+  onGenerateBoth,
+  onAdd,
+}: {
+  loading?: boolean;
+  onGenerateBoth: () => void | Promise<void>;
+  onAdd: (kind: AssetKind) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-zinc-200 bg-gradient-to-br from-zinc-50 to-white p-8 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-zinc-400 shadow-sm ring-1 ring-zinc-200">
+        <Sparkles className="h-5 w-5" />
+      </div>
+      <p className="mt-3 text-sm font-semibold text-zinc-900">
+        No creative assets yet
+      </p>
+      <p className="mt-1 text-xs text-zinc-500">
+        Tell the AI what you want and it&apos;ll draft it.
+      </p>
+      <div className="mt-5 flex flex-wrap justify-center gap-2">
+        <Button
+          variant="dark"
+          leftIcon={<ImageIcon className="h-4 w-4" />}
+          onClick={() => onAdd("flyer")}
+        >
+          Generate flyer
+        </Button>
+        <Button
+          variant="outline"
+          leftIcon={<Mic className="h-4 w-4" />}
+          onClick={() => onAdd("voiceover")}
+        >
+          Generate voiceover
+        </Button>
+      </div>
+      <button
+        type="button"
+        onClick={onGenerateBoth}
+        disabled={loading}
+        className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-zinc-500 underline-offset-4 transition-colors hover:text-zinc-900 hover:underline disabled:opacity-60"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Generating defaults…
+          </>
+        ) : (
+          <>
+            <Sparkles className="h-3 w-3" />
+            or generate both with defaults
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function AssetGroup({
+  title,
+  kind,
+  items,
+  actions,
+}: {
+  title: string;
+  kind: AssetKind;
+  items: Asset[];
+  actions: Actions;
+}) {
+  const Icon = kind === "flyer" ? ImageIcon : Music;
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-violet-600" />
+          <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
+            {title}
+          </h3>
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600">
+            {items.length}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={<Plus className="h-3.5 w-3.5" />}
+          onClick={() => actions.onAdd(kind)}
+        >
+          Add {kind === "flyer" ? "flyer" : "voiceover"}
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((asset, i) => (
+          <div
+            key={asset.id}
+            className={cn("animate-fade-up", `stagger-${Math.min(i, 5)}`)}
+          >
+            {asset.kind === "flyer" ? (
+              <FlyerCard asset={asset} actions={actions} />
+            ) : (
+              <AudioCard asset={asset} actions={actions} />
+            )}
+          </div>
+        ))}
+        <AddTile kind={kind} onClick={() => actions.onAdd(kind)} />
+      </div>
+    </section>
+  );
+}
+
+function AddTile({
+  kind,
+  onClick,
+}: {
+  kind: AssetKind;
+  onClick: () => void;
+}) {
+  const Icon = kind === "flyer" ? ImageIcon : Mic;
+  return (
+    <button
+      onClick={onClick}
+      className="group flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-zinc-200 bg-white p-6 text-center transition-all hover:-translate-y-px hover:border-violet-300 hover:bg-violet-50/40 hover:shadow-md"
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-50 text-zinc-400 transition-colors group-hover:bg-violet-100 group-hover:text-violet-600">
+        <Wand2 className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-zinc-900">
+          Add another {kind === "flyer" ? "flyer" : "voiceover"}
+        </p>
+        <p className="mt-1 flex items-center justify-center gap-1 text-xs text-zinc-500">
+          <Icon className="h-3 w-3" />
+          Custom prompt
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function CardHeader({
+  asset,
+  actions,
+}: {
+  asset: Asset;
+  actions: Actions;
+}) {
+  const ready = asset.status === "ready" && asset.url;
+  return (
+    <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <h4 className="truncate text-sm font-semibold text-zinc-900">
+          {asset.label ?? (asset.kind === "flyer" ? "Flyer" : "Voiceover")}
+        </h4>
+        {asset.prompt ? (
+          <p
+            className="mt-0.5 truncate text-[11px] text-zinc-500"
+            title={asset.prompt}
+          >
+            {asset.prompt}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <IconButton
+          label="Regenerate"
+          onClick={() => actions.onRegenerate(asset.id)}
+          disabled={asset.status === "processing"}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </IconButton>
+        {ready ? (
+          <a
+            href={asset.url!}
+            download
+            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600"
+            aria-label="Download"
+            title="Download"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </a>
+        ) : null}
+        <IconButton
+          label="Delete"
+          danger
+          onClick={() => actions.onDelete(asset.id)}
+          disabled={asset.status === "processing"}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </IconButton>
+      </div>
+    </div>
+  );
+}
+
+function IconButton({
+  label,
+  onClick,
+  disabled,
+  danger,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 disabled:opacity-40",
+        danger ? "hover:text-red-600" : "hover:text-violet-600",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function FlyerCard({
+  asset,
+  actions,
+}: {
+  asset: Asset;
+  actions: Actions;
+}) {
+  const ready = asset.status === "ready" && asset.url;
+  const processing = asset.status === "processing";
 
   return (
     <div className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <ImageIcon className="h-4 w-4 text-violet-600" />
-          <h3 className="text-sm font-semibold text-zinc-900">Campaign flyer</h3>
-        </div>
-        {ready ? (
-          <a
-            href={asset!.url!}
-            download
-            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600"
-            aria-label="Download flyer"
-          >
-            <Download className="h-4 w-4" />
-          </a>
-        ) : null}
-      </div>
-
+      <CardHeader asset={asset} actions={actions} />
       <div className="relative aspect-[4/5] w-full bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-4">
         {ready ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={asset!.url!}
-            alt="Campaign flyer"
+            src={asset.url!}
+            alt={asset.label ?? "Campaign flyer"}
             className="h-full w-full rounded-lg object-cover shadow-lg ring-1 ring-black/5"
           />
         ) : (
@@ -99,7 +316,8 @@ function FlyerCard({ asset }: { asset?: Asset }) {
             <div
               className={cn(
                 "flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-zinc-400 shadow-sm ring-1 ring-zinc-200",
-                processing && "animate-pulse-soft bg-violet-50 text-violet-500 ring-violet-100",
+                processing &&
+                  "animate-pulse-soft bg-violet-50 text-violet-500 ring-violet-100",
               )}
             >
               {processing ? (
@@ -108,16 +326,9 @@ function FlyerCard({ asset }: { asset?: Asset }) {
                 <ImageIcon className="h-5 w-5" />
               )}
             </div>
-            <div>
-              <p className="text-sm font-medium text-zinc-900">
-                {processing ? "Designing your flyer…" : "Flyer not generated"}
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                {processing
-                  ? "Composing layout and colors"
-                  : "AI will draft an on-brand visual"}
-              </p>
-            </div>
+            <p className="text-xs font-medium text-zinc-500">
+              {processing ? "Designing your flyer…" : "Waiting"}
+            </p>
           </div>
         )}
       </div>
@@ -125,9 +336,15 @@ function FlyerCard({ asset }: { asset?: Asset }) {
   );
 }
 
-function AudioCard({ asset }: { asset?: Asset }) {
-  const ready = asset?.status === "ready" && asset.url;
-  const processing = asset?.status === "processing";
+function AudioCard({
+  asset,
+  actions,
+}: {
+  asset: Asset;
+  actions: Actions;
+}) {
+  const ready = asset.status === "ready" && asset.url;
+  const processing = asset.status === "processing";
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -148,7 +365,7 @@ function AudioCard({ asset }: { asset?: Asset }) {
       el.removeEventListener("loadedmetadata", onMeta);
       el.removeEventListener("ended", onEnd);
     };
-  }, [asset?.url]);
+  }, [asset.url]);
 
   function toggle() {
     const el = audioRef.current;
@@ -174,37 +391,20 @@ function AudioCard({ asset }: { asset?: Asset }) {
 
   return (
     <div className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Music className="h-4 w-4 text-violet-600" />
-          <h3 className="text-sm font-semibold text-zinc-900">AI voiceover</h3>
-        </div>
+      <CardHeader asset={asset} actions={actions} />
+      <div className="relative aspect-[4/5] w-full bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-5">
         {ready ? (
-          <a
-            href={asset!.url!}
-            download
-            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600"
-            aria-label="Download audio"
-          >
-            <Download className="h-4 w-4" />
-          </a>
-        ) : null}
-      </div>
-
-      <div className="relative aspect-[4/5] w-full bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-6">
-        {ready ? (
-          <div className="flex h-full flex-col items-center justify-center gap-8">
-            {/* Waveform-style decorative bars */}
-            <div className="flex h-20 items-end gap-1">
-              {Array.from({ length: 28 }).map((_, i) => {
-                const active = (i / 28) * 100 < progress;
-                const h = 20 + Math.abs(Math.sin(i * 0.7)) * 60;
+          <div className="flex h-full flex-col items-center justify-center gap-5">
+            <div className="flex h-14 items-end gap-0.5">
+              {Array.from({ length: 22 }).map((_, i) => {
+                const active = (i / 22) * 100 < progress;
+                const h = 18 + Math.abs(Math.sin(i * 0.7)) * 60;
                 return (
                   <span
                     key={i}
                     style={{ height: `${h}%` }}
                     className={cn(
-                      "w-1 rounded-full transition-colors",
+                      "w-0.5 rounded-full transition-colors",
                       active ? "bg-violet-600" : "bg-zinc-200",
                     )}
                   />
@@ -214,40 +414,46 @@ function AudioCard({ asset }: { asset?: Asset }) {
 
             <button
               onClick={toggle}
-              className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg shadow-violet-600/30 transition-transform hover:scale-105 active:scale-95"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg shadow-violet-600/30 transition-transform hover:scale-105 active:scale-95"
               aria-label={playing ? "Pause" : "Play"}
             >
               {playing ? (
-                <Pause className="h-7 w-7" />
+                <Pause className="h-5 w-5" />
               ) : (
-                <Play className="h-7 w-7 translate-x-0.5" />
+                <Play className="h-5 w-5 translate-x-0.5" />
               )}
             </button>
 
-            <div className="w-full space-y-2">
+            <div className="w-full space-y-1.5">
               <div
                 onClick={seek}
-                className="group/bar h-1.5 w-full cursor-pointer rounded-full bg-zinc-200"
+                className="h-1 w-full cursor-pointer rounded-full bg-zinc-200"
               >
                 <div
                   className="h-full rounded-full bg-violet-600 transition-all"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[11px] font-medium text-zinc-500">
+              <div className="flex justify-between text-[10px] font-medium text-zinc-500">
                 <span>{fmtTime(current)}</span>
                 <span>{fmtTime(duration)}</span>
               </div>
             </div>
 
-            <audio ref={audioRef} src={asset!.url!} preload="metadata" className="hidden" />
+            <audio
+              ref={audioRef}
+              src={asset.url!}
+              preload="metadata"
+              className="hidden"
+            />
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <div
               className={cn(
                 "flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-zinc-400 shadow-sm ring-1 ring-zinc-200",
-                processing && "animate-pulse-soft bg-violet-50 text-violet-500 ring-violet-100",
+                processing &&
+                  "animate-pulse-soft bg-violet-50 text-violet-500 ring-violet-100",
               )}
             >
               {processing ? (
@@ -256,16 +462,9 @@ function AudioCard({ asset }: { asset?: Asset }) {
                 <Music className="h-5 w-5" />
               )}
             </div>
-            <div>
-              <p className="text-sm font-medium text-zinc-900">
-                {processing ? "Synthesizing voice…" : "Voiceover not generated"}
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                {processing
-                  ? "Creating a natural promotional clip"
-                  : "AI will narrate your campaign copy"}
-              </p>
-            </div>
+            <p className="text-xs font-medium text-zinc-500">
+              {processing ? "Synthesizing voice…" : "Waiting"}
+            </p>
           </div>
         )}
       </div>

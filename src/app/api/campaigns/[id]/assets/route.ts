@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import {
+  addAsset,
   getCampaign,
   getCampaignAssets,
   startAssetGeneration,
   useMocks,
 } from "@/lib/mock-store";
+import type { AssetKind, FlyerInput, VoiceoverInput } from "@/types/campaign";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -25,7 +27,7 @@ export async function GET(_request: Request, { params }: Params) {
   return NextResponse.json({ assets: getCampaignAssets(id) });
 }
 
-export async function POST(_request: Request, { params }: Params) {
+export async function POST(request: Request, { params }: Params) {
   const { id } = await params;
 
   if (!useMocks()) {
@@ -47,6 +49,18 @@ export async function POST(_request: Request, { params }: Params) {
     );
   }
 
-  const assets = startAssetGeneration(id);
+  const body = (await request
+    .json()
+    .catch(() => ({}))) as {
+    kind?: AssetKind;
+    flyer?: FlyerInput;
+    voice?: VoiceoverInput;
+  };
+
+  const assets =
+    body?.kind === "flyer" || body?.kind === "voiceover"
+      ? addAsset(id, body.kind, { flyer: body.flyer, voice: body.voice })
+      : startAssetGeneration(id);
+
   return NextResponse.json({ assets }, { status: 202 });
 }
