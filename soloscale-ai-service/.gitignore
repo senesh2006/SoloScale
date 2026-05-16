@@ -1,0 +1,13 @@
+node_modules/
+dist/
+uploads/
+.env
+.env.local
+*.log
+.DS_Store
+# local API debug dumps
+camp-out.json
+resp-img.json
+img-resp.json
+quota-resp.json
+.tmp-*.json

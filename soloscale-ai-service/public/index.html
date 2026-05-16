@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoloScale AI Service - Dev Console</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --panel: #141821;
+      --panel-2: #1b2030;
+      --border: #252b3b;
+      --text: #e8ebf2;
+      --muted: #8a93a8;
+      --accent: #7c5cff;
+      --accent-2: #00d4a1;
+      --danger: #ff5d6c;
+      --warn: #f5b545;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      background: radial-gradient(1200px 800px at 10% -10%, #1a1f33 0%, var(--bg) 60%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 20px 80px;
+    }
+    header {
+      max-width: 1100px;
+      margin: 0 auto 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    header h1 {
+      font-size: 22px;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+    header .sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .health {
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .health b { color: var(--accent-2); }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .panel.wide { grid-column: 1 / -1; }
+    .panel h2 {
+      margin: 0;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .panel h2 .badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: var(--panel-2);
+      color: var(--muted);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .panel p.desc {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], textarea, select {
+      width: 100%;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 14px;
+      resize: vertical;
+    }
+    textarea { min-height: 70px; }
+    select { resize: none; }
+    input[type="text"]:focus, textarea:focus, select:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: -1px;
+    }
+    .field { margin-bottom: 10px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button {
+      align-self: flex-start;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font: inherit;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.05s;
+    }
+    button.secondary {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.big {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      padding: 14px 22px;
+      font-size: 15px;
+    }
+    button:hover { opacity: 0.92; }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .output {
+      margin-top: 8px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+      min-height: 40px;
+      max-height: 420px;
+      overflow: auto;
+    }
+    .output pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .output img {
+      width: 100%;
+      max-width: 480px;
+      border-radius: 8px;
+      display: block;
+    }
+    .output audio { width: 100%; }
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 16px;
+    }
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--accent-2); }
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .post-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .post-card .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .post-card .meta span {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      border-radius: 5px;
+    }
+    .post-card .meta .platform { color: var(--accent); }
+    .post-card .headline {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .post-card .body {
+      font-size: 13px;
+      color: #c8cee0;
+      margin-bottom: 6px;
+      line-height: 1.45;
+    }
+    .post-card .tags {
+      font-size: 11px;
+      color: var(--accent-2);
+    }
+    details summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) {
+      main, .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>SoloScale AI Service</h1>
+      <div class="sub">Developer 1 module - Gemini strategy, Pixazo flyers, voice-overs</div>
+    </div>
+    <div class="health" id="health">checking service...</div>
+  </header>
+
+  <main>
+    <section class="panel wide">
+      <h2>One-Click Campaign Demo <span class="badge">POST /api/campaign</span></h2>
+      <p class="desc">The judges' demo flow. Generates a full campaign strategy plus one hero flyer and one hero voice-over in a single call.</p>
+      <div class="field">
+        <label for="demoGoal">Goal</label>
+        <textarea id="demoGoal" placeholder="e.g. I'm hosting a virtual workshop on React on Friday. Build my campaign.">I'm hosting a virtual workshop on React on Friday. Build my campaign.</textarea>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="demoDate">Event date (optional)</label>
+          <input type="text" id="demoDate" placeholder="2026-05-22" />
+        </div>
+        <div class="field">
+          <label for="demoAudience">Audience (optional)</label>
+          <input type="text" id="demoAudience" placeholder="indie web developers" />
+        </div>
+      </div>
+      <div class="field" style="max-width: 320px;">
+        <label for="demoVoice">Voice for hero voice-over (optional)</label>
+        <select id="demoVoice">
+          <option value="">Default</option>
+        </select>
+      </div>
+      <button class="big" id="demoBtn">Run Full Campaign</button>
+      <div class="status" id="demoStatus"></div>
+      <div id="demoOutput"></div>
+    </section>
+
+    <section class="panel">
+      <h2>1. Strategy <span class="badge">POST /api/strategy</span></h2>
+      <p class="desc">Gemini generates a structured multi-post campaign as JSON.</p>
+      <div class="field">
+        <label for="stratGoal">Goal</label>
+        <textarea id="stratGoal" placeholder="e.g. Launch my AI dev tool next month with a webinar."></textarea>
+      </div>
+      <button id="stratBtn">Generate Strategy</button>
+      <div class="status" id="stratStatus"></div>
+      <div class="output" id="stratOutput"></div>
+    </section>
+
+    <section class="panel">
+      <h2>2. Flyer <span class="badge">POST /api/flyer</span></h2>
+      <p class="desc">Generates a social-ready flyer image with optional on-image headline/subtext.</p>
+      <div class="field">
+        <label for="flyerPrompt">Visual prompt</label>
+        <textarea id="flyerPrompt" placeholder="A vibrant tech-event flyer with bold neon gradients..."></textarea>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="flyerHeadline">Headline</label>
+          <input type="text" id="flyerHeadline" placeholder="React Workshop" />
+        </div>
+        <div class="field">
+          <label for="flyerSubtext">Subtext</label>
+          <input type="text" id="flyerSubtext" placeholder="Friday 7 PM IST" />
+        </div>
+      </div>
+      <button id="flyerBtn">Generate Flyer</button>
+      <div class="status" id="flyerStatus"></div>
+      <div class="output" id="flyerOutput"></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>3. Voice-over <span class="badge">POST /api/voiceover</span></h2>
+      <p class="desc">ElevenLabs converts a script into an MP3 you can drop into a reel.</p>
+      <div class="field">
+        <label for="ttsScript">Script</label>
+        <textarea id="ttsScript" placeholder="Hey builders. This Friday, we're going deep on React server components..."></textarea>
+      </div>
+      <div class="field" style="max-width: 320px;">
+        <label for="ttsVoice">Voice (optional)</label>
+        <select id="ttsVoice">
+          <option value="">Default</option>
+        </select>
+      </div>
+      <button id="ttsBtn">Generate Voice-over</button>
+      <div class="status" id="ttsStatus"></div>
+      <div class="output" id="ttsOutput"></div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function prettifyErrorMessage(raw) {
+      if (!raw) return 'Unknown error';
+      let msg = String(raw);
+      // Some errors come back as a stringified JSON envelope; pull the inner message.
+      if (msg.startsWith('{') && msg.includes('"message"')) {
+        try {
+          const inner = JSON.parse(msg);
+          msg = inner?.error?.message || inner?.message || msg;
+        } catch { /* ignore */ }
+      }
+      if (msg.length > 200) msg = msg.slice(0, 197) + '...';
+      return msg;
+    }
+
+    async function postJSON(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(prettifyErrorMessage(data.message || data.error) || `HTTP ${res.status}`);
+        err.details = data;
+        throw err;
+      }
+      return data;
+    }
+
+    function setStatus(el, msg, kind) {
+      el.className = 'status' + (kind ? ' ' + kind : '');
+      el.textContent = msg || '';
+    }
+
+    function setBusy(btn, busy, label) {
+      btn.disabled = busy;
+      if (label) btn.textContent = busy ? label : btn.dataset.label || label;
+      if (busy && !btn.dataset.label) btn.dataset.label = btn.textContent;
+    }
+
+    function renderStrategy(strategy) {
+      const html = [];
+      html.push(`<div style="margin-bottom:10px;font-size:13px;color:var(--muted)">Goal: <span style="color:var(--text)">${escapeHtml(strategy.goal)}</span> &middot; ${strategy.durationDays} days &middot; ${strategy.posts.length} posts</div>`);
+      if (strategy.event) {
+        html.push(`<div class="post-card" style="border-color:var(--accent)"><div class="meta"><span class="platform">EVENT</span><span>${escapeHtml(strategy.event.format)}</span><span>${escapeHtml(strategy.event.dateISO)}</span></div><div class="headline">${escapeHtml(strategy.event.title)}</div><div class="body">${escapeHtml(strategy.event.description)}</div></div>`);
+      }
+      html.push('<div class="timeline">');
+      for (const p of strategy.posts) {
+        html.push(`<div class="post-card">
+          <div class="meta">
+            <span>Day ${p.day}</span>
+            <span>${escapeHtml(p.dateISO)}</span>
+            <span class="platform">${escapeHtml(p.platform)}</span>
+            <span>${escapeHtml(p.type)}</span>
+          </div>
+          <div class="headline">${escapeHtml(p.headline)}</div>
+          <div class="body">${escapeHtml(p.body)}</div>
+          ${p.hashtags?.length ? `<div class="tags">${p.hashtags.map(h => '#' + escapeHtml(h)).join(' ')}</div>` : ''}
+          ${p.cta ? `<div class="body" style="margin-top:6px;color:var(--accent-2)">CTA: ${escapeHtml(p.cta)}</div>` : ''}
+        </div>`);
+      }
+      html.push('</div>');
+      return html.join('');
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function fillVoiceSelect(selectEl, voices, defaultVoiceName) {
+      const current = selectEl.value;
+      selectEl.innerHTML = '';
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = defaultVoiceName
+        ? `Default (${defaultVoiceName})`
+        : 'Default';
+      selectEl.appendChild(defaultOpt);
+      for (const { name } of voices) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        selectEl.appendChild(opt);
+      }
+      if (current && [...selectEl.options].some((o) => o.value === current)) {
+        selectEl.value = current;
+      }
+    }
+
+    async function loadVoiceSelects() {
+      try {
+        const { voices, defaultVoiceName } = await fetch('/api/voices').then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        });
+        fillVoiceSelect($('ttsVoice'), voices, defaultVoiceName);
+        fillVoiceSelect($('demoVoice'), voices, defaultVoiceName);
+      } catch {
+        $('ttsVoice').innerHTML = '<option value="">Default (load voices failed)</option>';
+        $('demoVoice').innerHTML = '<option value="">Default (load voices failed)</option>';
+      }
+    }
+
+    function voiceNameFromSelect(selectEl) {
+      const v = selectEl.value.trim();
+      return v || undefined;
+    }
+
+    // --- Health ---
+    fetch('/health').then(r => r.json()).then((h) => {
+      $('health').innerHTML = `service: <b>${h.status}</b> &middot; storage: ${h.storage} &middot; text: ${h.models.text} &middot; image: ${h.models.image} &middot; tts: ${h.models.tts}`;
+    }).catch(() => {
+      $('health').textContent = 'service offline';
+    });
+
+    loadVoiceSelects();
+
+    // --- Strategy ---
+    $('stratBtn').addEventListener('click', async () => {
+      const goal = $('stratGoal').value.trim();
+      if (!goal) return setStatus($('stratStatus'), 'Enter a goal first.', 'error');
+      setStatus($('stratStatus'), 'Generating campaign strategy...');
+      setBusy($('stratBtn'), true, 'Generating...');
+      $('stratOutput').innerHTML = '';
+      try {
+        const { strategy } = await postJSON('/api/strategy', { goal });
+        $('stratOutput').innerHTML = renderStrategy(strategy);
+        setStatus($('stratStatus'), `Generated ${strategy.posts.length} posts.`, 'success');
+      } catch (e) {
+        setStatus($('stratStatus'), e.message, 'error');
+      } finally {
+        setBusy($('stratBtn'), false);
+      }
+    });
+
+    // --- Flyer ---
+    $('flyerBtn').addEventListener('click', async () => {
+      const prompt = $('flyerPrompt').value.trim();
+      if (!prompt) return setStatus($('flyerStatus'), 'Enter a prompt first.', 'error');
+      setStatus($('flyerStatus'), 'Generating flyer (this can take 10-30s)...');
+      setBusy($('flyerBtn'), true, 'Generating...');
+      $('flyerOutput').innerHTML = '';
+      try {
+        const body = { prompt };
+        const headline = $('flyerHeadline').value.trim();
+        const subtext = $('flyerSubtext').value.trim();
+        if (headline) body.headline = headline;
+        if (subtext) body.subtext = subtext;
+        const { asset } = await postJSON('/api/flyer', body);
+        $('flyerOutput').innerHTML = `<img src="${asset.url}" alt="generated flyer" /><div style="margin-top:8px;font-size:11px;color:var(--muted)">${asset.url}</div>`;
+        setStatus($('flyerStatus'), 'Flyer generated.', 'success');
+      } catch (e) {
+        setStatus($('flyerStatus'), e.message, 'error');
+      } finally {
+        setBusy($('flyerBtn'), false);
+      }
+    });
+
+    // --- TTS ---
+    $('ttsBtn').addEventListener('click', async () => {
+      const script = $('ttsScript').value.trim();
+      if (!script) return setStatus($('ttsStatus'), 'Enter a script first.', 'error');
+      setStatus($('ttsStatus'), 'Generating voice-over...');
+      setBusy($('ttsBtn'), true, 'Generating...');
+      $('ttsOutput').innerHTML = '';
+      try {
+        const body = { script };
+        const voiceName = voiceNameFromSelect($('ttsVoice'));
+        if (voiceName) body.voiceName = voiceName;
+        const { asset } = await postJSON('/api/voiceover', body);
+        $('ttsOutput').innerHTML = `<audio controls src="${asset.url}"></audio><div style="margin-top:8px;font-size:11px;color:var(--muted)">${asset.url} &middot; ${(asset.durationMs / 1000).toFixed(1)}s</div>`;
+        setStatus($('ttsStatus'), 'Voice-over generated.', 'success');
+      } catch (e) {
+        setStatus($('ttsStatus'), e.message, 'error');
+      } finally {
+        setBusy($('ttsBtn'), false);
+      }
+    });
+
+    // --- One-Click Demo ---
+    $('demoBtn').addEventListener('click', async () => {
+      const goal = $('demoGoal').value.trim();
+      if (!goal) return setStatus($('demoStatus'), 'Enter a goal first.', 'error');
+      const body = { goal };
+      const eventDate = $('demoDate').value.trim();
+      const audience = $('demoAudience').value.trim();
+      if (eventDate) body.eventDate = eventDate;
+      if (audience) body.audience = audience;
+      const voiceName = voiceNameFromSelect($('demoVoice'));
+      if (voiceName) body.voiceName = voiceName;
+
+      setStatus($('demoStatus'), 'Generating strategy, flyer, and voice-over in parallel...');
+      setBusy($('demoBtn'), true, 'Working...');
+      $('demoOutput').innerHTML = '';
+      try {
+        const t0 = performance.now();
+        const data = await postJSON('/api/campaign', body);
+        const ms = Math.round(performance.now() - t0);
+        const { strategy, assets } = data;
+
+        const assetsHtml = `
+          <div class="grid-2" style="margin-top:14px;">
+            <div class="panel" style="margin:0;">
+              <h2 style="font-size:14px;">Hero Flyer</h2>
+              ${assets.flyer
+                ? `<img style="width:100%;border-radius:8px;" src="${assets.flyer.url}" />
+                   <div style="font-size:11px;color:var(--muted);margin-top:6px;">${assets.flyer.url}</div>`
+                : `<div class="status error">${escapeHtml(prettifyErrorMessage(assets.flyerError) || 'No flyer generated.')}</div>`}
+            </div>
+            <div class="panel" style="margin:0;">
+              <h2 style="font-size:14px;">Hero Voice-over</h2>
+              ${assets.voiceover
+                ? `<audio controls src="${assets.voiceover.url}" style="width:100%;"></audio>
+                   <div style="font-size:11px;color:var(--muted);margin-top:6px;">${assets.voiceover.url} &middot; ${(assets.voiceover.durationMs / 1000).toFixed(1)}s</div>`
+                : `<div class="status error">${escapeHtml(prettifyErrorMessage(assets.voiceoverError) || 'No voice-over generated.')}</div>`}
+            </div>
+          </div>`;
+
+        $('demoOutput').innerHTML = `
+          <div style="margin-top:14px;">
+            <h3 style="margin:0 0 8px;font-size:14px;">Campaign Strategy</h3>
+            ${renderStrategy(strategy)}
+          </div>
+          ${assetsHtml}`;
+        setStatus($('demoStatus'), `Done in ${ms} ms.`, 'success');
+      } catch (e) {
+        setStatus($('demoStatus'), e.message, 'error');
+      } finally {
+        setBusy($('demoBtn'), false);
+      }
+    });
+  </script>
+</body>
+</html>

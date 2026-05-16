@@ -34,11 +34,11 @@ export type Campaign = {
   goal_prompt: string;
   status: CampaignStatus;
   strategy_json: CampaignStrategy | null;
+  /** Prompts for regenerating assets via soloscale-ai-service */
+  ai_hero?: AiHeroMeta;
   created_at: string;
   updated_at: string;
   event_id: string | null;
-  /** All event pages under this campaign */
-  event_ids: string[];
 };
 
 export type AssetKind = "flyer" | "voiceover";
@@ -70,6 +70,12 @@ export type VoiceoverInput = {
   label?: string;
 };
 
+export type AiHeroMeta = {
+  flyer?: FlyerInput;
+  voiceScript?: string;
+  voiceName?: string;
+};
+
 export type FormFieldType =
   | "text"
   | "textarea"
@@ -99,24 +105,6 @@ export type Announcement = {
   sent_at: string;
   recipient_count: number;
   channel?: "email" | "in_app";
-};
-
-export type ReminderStatus = "scheduled" | "sent" | "cancelled";
-
-export type ReminderPresetId = "7d" | "24h" | "1h" | "custom";
-
-export type EventReminder = {
-  id: string;
-  event_id: string;
-  preset_id: ReminderPresetId | null;
-  label: string;
-  scheduled_for: string;
-  subject: string;
-  body: string;
-  status: ReminderStatus;
-  enabled: boolean;
-  channel?: "email" | "in_app";
-  sent_at?: string | null;
 };
 
 export type Currency = "USD" | "EUR" | "GBP" | "INR" | "LKR";

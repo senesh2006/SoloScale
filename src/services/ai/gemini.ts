@@ -1,16 +1,11 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
-import type {
-  CampaignStrategy,
-  FlyerInput,
-  VoiceoverInput,
-} from "@/types/campaign";
+import {
+  GoogleGenerativeAI,
+  SchemaType,
+  type Schema,
+} from "@google/generative-ai";
+import type { CampaignStrategy } from "@/types/campaign";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-export type StrategyAssetBrief = {
-  flyer: FlyerInput;
-  voice: VoiceoverInput;
-};
 
 const schema = {
   description: "A comprehensive marketing campaign strategy",
@@ -60,7 +55,7 @@ const schema = {
     },
   },
   required: ["summary", "timeline", "event_draft"],
-};
+} as unknown as Schema;
 
 export async function refineCampaignStrategy(input: {
   current: CampaignStrategy;
@@ -152,7 +147,6 @@ export async function generateVoiceScript(input: {
   title: string;
   goal_prompt: string;
   hint?: string;
-  strategy?: CampaignStrategy | null;
 }): Promise<string> {
   if (!process.env.GEMINI_API_KEY) {
     return mockScript(input);
@@ -160,24 +154,10 @@ export async function generateVoiceScript(input: {
 
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const strategyBlock = input.strategy
-      ? `
-      Use this approved campaign strategy for tone and messaging:
-      Summary: ${input.strategy.summary}
-      Event headline: ${input.strategy.event_draft.headline}
-      Event subhead: ${input.strategy.event_draft.subhead}
-      Upcoming posts (sample): ${input.strategy.timeline
-        .slice(0, 3)
-        .map((t) => `[${t.type}] ${t.copy}`)
-        .join(" | ")}
-    `
-      : "";
-
     const prompt = `
       Write a short, natural voiceover script for a promotional clip.
       Campaign title: "${input.title}".
       Goal: "${input.goal_prompt}".
-      ${strategyBlock}
       ${input.hint ? `Use this as a starting point: "${input.hint}".` : ""}
 
       Constraints:
@@ -194,132 +174,7 @@ export async function generateVoiceScript(input: {
   }
 }
 
-const strategyAssetBriefSchema = {
-  description: "Flyer and voiceover briefs aligned to an existing campaign strategy",
-  type: SchemaType.OBJECT,
-  properties: {
-    flyer_prompt: {
-      type: SchemaType.STRING,
-      description: "Detailed visual prompt for image generation (style, colors, mood)",
-    },
-    flyer_headline: { type: SchemaType.STRING },
-    flyer_subtext: { type: SchemaType.STRING },
-    flyer_label: { type: SchemaType.STRING },
-    voice_script: {
-      type: SchemaType.STRING,
-      description: "30-60 word voiceover script",
-    },
-    voice_label: { type: SchemaType.STRING },
-  },
-  required: [
-    "flyer_prompt",
-    "flyer_headline",
-    "flyer_subtext",
-    "flyer_label",
-    "voice_script",
-    "voice_label",
-  ],
-};
-
-export async function generateAssetsFromStrategy(input: {
-  title: string;
-  goal_prompt: string;
-  strategy: CampaignStrategy;
-}): Promise<StrategyAssetBrief> {
-  if (!process.env.GEMINI_API_KEY) {
-    return mockAssetsFromStrategy(input);
-  }
-
-  try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: strategyAssetBriefSchema,
-      },
-    });
-
-    const prompt = `
-      Create matching flyer and voiceover briefs for a campaign that already has an approved strategy.
-
-      Campaign: "${input.title}"
-      Goal: "${input.goal_prompt}"
-
-      Strategy summary: ${input.strategy.summary}
-
-      Event landing:
-      - Headline: ${input.strategy.event_draft.headline}
-      - Subhead: ${input.strategy.event_draft.subhead}
-
-      Content timeline:
-      ${input.strategy.timeline
-        .map(
-          (t) =>
-            `- ${t.type} (${t.scheduled_at}): ${t.copy}`,
-        )
-        .join("\n")}
-
-      Return:
-      - flyer_prompt: rich visual direction for a social promo graphic
-      - flyer_headline / flyer_subtext: on-image copy (short)
-      - flyer_label: short internal name e.g. "Launch week hero"
-      - voice_script: 30-60 words, conversational, CTA at end
-      - voice_label: short internal name e.g. "Strategy teaser"
-    `;
-
-    const result = await model.generateContent(prompt);
-    return normalizeStrategyAssetBrief(JSON.parse(result.response.text()));
-  } catch (err) {
-    console.error("Gemini strategy assets failed, falling back to mock:", err);
-    return mockAssetsFromStrategy(input);
-  }
-}
-
-function normalizeStrategyAssetBrief(raw: unknown): StrategyAssetBrief {
-  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return {
-    flyer: {
-      prompt: String(o.flyer_prompt ?? "").trim() || "Bold event promo graphic",
-      headline: String(o.flyer_headline ?? "").trim() || undefined,
-      subtext: String(o.flyer_subtext ?? "").trim() || undefined,
-      label: String(o.flyer_label ?? "").trim() || "From strategy",
-    },
-    voice: {
-      script: String(o.voice_script ?? "").trim() || "Join us — sign up at the link below.",
-      label: String(o.voice_label ?? "").trim() || "From strategy",
-    },
-  };
-}
-
-function mockAssetsFromStrategy(input: {
-  title: string;
-  strategy: CampaignStrategy;
-}): StrategyAssetBrief {
-  const { event_draft, summary, timeline } = input.strategy;
-  const hook = timeline[0]?.copy ?? summary;
-  return {
-    flyer: {
-      prompt: `Promotional graphic for "${input.title}". ${summary} Visual style: modern, high-contrast, event photography feel. Key message: ${hook.slice(0, 120)}`,
-      headline: event_draft.headline.slice(0, 60),
-      subtext: event_draft.subhead.slice(0, 120),
-      label: "Strategy hero flyer",
-    },
-    voice: {
-      script: mockScript({
-        title: input.title,
-        goal_prompt: hook,
-        strategy: input.strategy,
-      }),
-      label: "Strategy voiceover",
-    },
-  };
-}
-
-function mockScript(input: {
-  title: string;
-  goal_prompt: string;
-  strategy?: CampaignStrategy | null;
-}): string {
+function mockScript(input: { title: string; goal_prompt: string }): string {
   const title = input.title.trim() || "this event";
   const goal = input.goal_prompt.trim().split(/[.!?\n]/)[0].slice(0, 120);
   const variants = [

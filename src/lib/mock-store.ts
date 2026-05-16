@@ -1,8 +1,7 @@
 import demoStrategy from "@/mocks/demo-campaign.json";
 import type {
+  AiHeroMeta,
   Announcement,
-  EventReminder,
-  ReminderPresetId,
   Asset,
   AssetKind,
   Attendee,
@@ -22,7 +21,6 @@ const globalForMock = global as unknown as {
   assets: Map<string, Asset[]>;
   attendees: Map<string, Attendee[]>;
   announcements: Map<string, Announcement[]>;
-  reminders: Map<string, EventReminder[]>;
 };
 
 const campaigns = globalForMock.campaigns || new Map<string, Campaign>();
@@ -31,8 +29,6 @@ const assets = globalForMock.assets || new Map<string, Asset[]>();
 const attendees = globalForMock.attendees || new Map<string, Attendee[]>();
 const announcements =
   globalForMock.announcements || new Map<string, Announcement[]>();
-const reminders =
-  globalForMock.reminders || new Map<string, EventReminder[]>();
 
 // Initialize with a demo campaign if empty
 if (campaigns.size === 0) {
@@ -50,7 +46,6 @@ if (campaigns.size === 0) {
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
     updated_at: new Date(Date.now() - 86400000).toISOString(),
     event_id: eventId,
-    event_ids: [eventId],
   });
 
   events.set(eventId, {
@@ -66,23 +61,44 @@ if (campaigns.size === 0) {
     form_fields: strategy.event_draft.form_fields,
     attendee_count: 42,
     price: { amount_cents: 2500, currency: "USD" },
-    event_date: new Date(Date.now() + 86400000 * 10).toISOString(),
-    location: "Virtual · Zoom + livestream",
     media: {
       hero_url:
-        "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1600&q=80",
+        "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=2000&q=80",
       gallery_urls: [
-        "https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=800&q=80",
-        "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800&q=80",
-        "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800&q=80",
+        "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1559223607-a43c990c692c?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1591115765373-5207764f72e7?auto=format&fit=crop&w=1200&q=80",
       ],
     },
     sponsors: [
-      { id: "sp_1", name: "Vercel", website: "https://vercel.com" },
-      { id: "sp_2", name: "Linear", website: "https://linear.app" },
-      { id: "sp_3", name: "Stripe", website: "https://stripe.com" },
+      {
+        id: "spn_1",
+        name: "Vercel",
+        logo_url: "https://placehold.co/240x80/0f172a/ffffff?text=Vercel",
+        website: "https://vercel.com",
+      },
+      {
+        id: "spn_2",
+        name: "Stripe",
+        logo_url: "https://placehold.co/240x80/635bff/ffffff?text=Stripe",
+        website: "https://stripe.com",
+      },
+      {
+        id: "spn_3",
+        name: "Linear",
+        logo_url: "https://placehold.co/240x80/5e6ad2/ffffff?text=Linear",
+        website: "https://linear.app",
+      },
+      {
+        id: "spn_4",
+        name: "Supabase",
+        logo_url: "https://placehold.co/240x80/3ecf8e/ffffff?text=Supabase",
+        website: "https://supabase.com",
+      },
     ],
     sponsors_display: "grid",
+    event_date: new Date(Date.now() + 86400000 * 10).toISOString(),
+    location: "Virtual · Zoom + livestream",
   });
 
   assets.set(demoId, [
@@ -127,23 +143,6 @@ if (campaigns.size === 0) {
       channel: "email",
     },
   ]);
-
-  const eventDate = events.get(eventId)!.event_date!;
-  reminders.set(eventId, [
-  {
-      id: "rem_demo_24h",
-      event_id: eventId,
-      preset_id: "24h",
-      label: "24 hours before",
-      scheduled_for: new Date(+new Date(eventDate) - 86400000).toISOString(),
-      subject: "Tomorrow: React Summit 2026",
-      body: "You're registered — here's everything you need for tomorrow: join link, schedule, and how to get your ticket ready.",
-      status: "scheduled",
-      enabled: true,
-      channel: "email",
-      sent_at: null,
-    },
-  ]);
 }
 
 if (process.env.NODE_ENV !== "production") {
@@ -152,11 +151,20 @@ if (process.env.NODE_ENV !== "production") {
   globalForMock.assets = assets;
   globalForMock.attendees = attendees;
   globalForMock.announcements = announcements;
-  globalForMock.reminders = reminders;
 }
 
 function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function setCampaign(id: string, c: Campaign): Campaign {
+  const stamped: Campaign = { ...c, updated_at: nowIso() };
+  campaigns.set(id, stamped);
+  return stamped;
 }
 
 function slugify(text: string) {
@@ -189,10 +197,12 @@ export function createCampaign(input: {
   mode?: CreateCampaignMode;
   user_id?: string;
   strategy?: CampaignStrategy;
+  /** When true, skip the delayed demo strategy (caller will apply AI or mock manually). */
+  deferMockStrategy?: boolean;
 }): Campaign {
   const id = uid("camp");
   const mode: CreateCampaignMode = input.mode ?? "all";
-  const now = new Date().toISOString();
+  const now = nowIso();
   const campaign: Campaign = {
     id,
     user_id: input.user_id ?? "demo-user",
@@ -203,40 +213,44 @@ export function createCampaign(input: {
     created_at: now,
     updated_at: now,
     event_id: null,
-    event_ids: [],
   };
   campaigns.set(id, campaign);
 
-  if (!input.strategy) {
-    // Default mock behavior if no strategy provided
-    setTimeout(() => {
-      const current = campaigns.get(id);
-      if (!current) return;
-      const strategy = demoStrategy as CampaignStrategy;
-      const eventId = mode === "all" ? buildEventFromStrategy(id, input.title, strategy) : null;
-      campaigns.set(id, {
-        ...current,
-        status: "strategy_ready",
-        strategy_json: strategy,
-        event_id: eventId,
-        event_ids: eventId ? [eventId] : [],
-        updated_at: new Date().toISOString(),
-      });
-    }, 800);
-  } else {
+  if (input.strategy) {
     const eventId =
       mode === "all" ? buildEventFromStrategy(id, input.title, input.strategy) : null;
-    campaigns.set(id, {
+    setCampaign(id, {
       ...campaign,
       status: "strategy_ready",
       strategy_json: input.strategy,
       event_id: eventId,
-      event_ids: eventId ? [eventId] : [],
-      updated_at: new Date().toISOString(),
     });
+  } else if (!input.deferMockStrategy) {
+    scheduleDemoStrategy(id, mode, input.title);
   }
 
   return campaign;
+}
+
+/** Applies the bundled demo strategy after a short delay (mock fallback). */
+export function scheduleDemoStrategy(
+  campaignId: string,
+  mode: CreateCampaignMode,
+  title: string,
+): void {
+  setTimeout(() => {
+    const current = campaigns.get(campaignId);
+    if (!current || current.strategy_json) return;
+    const strategy = demoStrategy as CampaignStrategy;
+    const eventId =
+      mode === "all" ? buildEventFromStrategy(campaignId, title, strategy) : null;
+    setCampaign(campaignId, {
+      ...current,
+      status: "strategy_ready",
+      strategy_json: strategy,
+      event_id: eventId,
+    });
+  }, 800);
 }
 
 function buildEventFromStrategy(
@@ -262,83 +276,23 @@ function buildEventFromStrategy(
   return eventId;
 }
 
-export function getCampaignEventIds(campaign: Campaign): string[] {
-  if (campaign.event_ids?.length) return campaign.event_ids;
-  if (campaign.event_id) return [campaign.event_id];
-  return [];
-}
-
-export function listEventsForCampaign(campaignId: string): Event[] {
-  const campaign = campaigns.get(campaignId);
-  if (!campaign) return [];
-  return getCampaignEventIds(campaign)
-    .map((eventId) => events.get(eventId))
-    .filter((e): e is Event => Boolean(e));
-}
-
-function uniqueEventSlug(base: string): string {
-  let slug = slugify(base) || "event";
-  if (!Array.from(events.values()).some((e) => e.slug === slug)) return slug;
-  let n = 2;
-  while (Array.from(events.values()).some((e) => e.slug === `${slug}-${n}`)) {
-    n += 1;
-  }
-  return `${slug}-${n}`;
-}
-
-export function createCampaignEvent(
-  campaignId: string,
-  input: { title?: string } = {},
-): Event | undefined {
-  const campaign = campaigns.get(campaignId);
-  if (!campaign?.strategy_json) return undefined;
-
-  const strategy = campaign.strategy_json;
-  const existing = listEventsForCampaign(campaignId);
-  const n = existing.length + 1;
-  const label = input.title?.trim() || campaign.title;
-  const headline =
-    input.title?.trim() ||
-    (n > 1
-      ? `${strategy.event_draft.headline} (${n})`
-      : strategy.event_draft.headline);
-
-  const eventId = uid("evt");
-  const event: Event = {
-    id: eventId,
-    campaign_id: campaignId,
-    slug: uniqueEventSlug(label),
-    published: false,
-    landing: {
-      headline,
-      subhead: strategy.event_draft.subhead,
-      body_md: strategy.event_draft.body_md,
-    },
-    form_fields: [...strategy.event_draft.form_fields],
-    attendee_count: 0,
-  };
-  events.set(eventId, event);
-
-  const eventIds = [...getCampaignEventIds(campaign), eventId];
-  campaigns.set(campaignId, {
-    ...campaign,
-    event_ids: eventIds,
-    event_id: eventId,
-    updated_at: new Date().toISOString(),
-  });
-
-  return event;
-}
-
-/** @deprecated Use createCampaignEvent — kept for existing route */
 export function createEventForCampaign(campaignId: string): Event | undefined {
-  return createCampaignEvent(campaignId);
+  const campaign = campaigns.get(campaignId);
+  if (!campaign || !campaign.strategy_json) return undefined;
+  if (campaign.event_id) return events.get(campaign.event_id);
+
+  const eventId = buildEventFromStrategy(
+    campaignId,
+    campaign.title,
+    campaign.strategy_json,
+  );
+  setCampaign(campaignId, { ...campaign, event_id: eventId });
+  return events.get(eventId);
 }
 
 export type UpdateStrategyResult =
   | { ok: true; campaign: Campaign }
-  | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "conflict"; current: Campaign };
+  | { ok: false; reason: "not_found" | "conflict"; current?: Campaign };
 
 export function updateCampaignStrategy(
   id: string,
@@ -348,7 +302,10 @@ export function updateCampaignStrategy(
   const campaign = campaigns.get(id);
   if (!campaign) return { ok: false, reason: "not_found" };
 
-  if (options.ifUpdatedAt && campaign.updated_at !== options.ifUpdatedAt) {
+  if (
+    options.ifUpdatedAt &&
+    options.ifUpdatedAt !== campaign.updated_at
+  ) {
     return { ok: false, reason: "conflict", current: campaign };
   }
 
@@ -357,19 +314,13 @@ export function updateCampaignStrategy(
     eventId = buildEventFromStrategy(id, campaign.title, strategy);
   }
 
-  const priorIds = getCampaignEventIds(campaign);
-  const event_ids =
-    eventId && !priorIds.includes(eventId) ? [...priorIds, eventId] : priorIds;
-
-  const updated: Campaign = {
+  const updated = setCampaign(id, {
     ...campaign,
-    status: "strategy_ready",
+    status:
+      campaign.status === "published" ? "published" : "strategy_ready",
     strategy_json: strategy,
-    event_id: eventId ?? campaign.event_id,
-    event_ids,
-    updated_at: new Date().toISOString(),
-  };
-  campaigns.set(id, updated);
+    event_id: eventId,
+  });
   return { ok: true, campaign: updated };
 }
 
@@ -454,6 +405,44 @@ export function addAsset(
     maybePromoteCampaign(campaignId);
   }, 1500);
 
+  return next;
+}
+
+export function setAiHeroMeta(campaignId: string, meta: AiHeroMeta): void {
+  const c = campaigns.get(campaignId);
+  if (!c) return;
+  setCampaign(campaignId, { ...c, ai_hero: meta });
+}
+
+export function addReadyAsset(
+  campaignId: string,
+  kind: AssetKind,
+  input: {
+    url: string;
+    label?: string;
+    prompt?: string;
+    thumbnail_url?: string;
+    voice_id?: string;
+  },
+): Asset[] {
+  const existing = assets.get(campaignId) ?? [];
+  const asset: Asset = {
+    id: uid("asset"),
+    campaign_id: campaignId,
+    kind,
+    status: "ready",
+    url: input.url,
+    thumbnail_url:
+      input.thumbnail_url ??
+      (kind === "flyer" ? input.url : undefined),
+    label: input.label?.trim() || defaultLabel(campaignId, kind),
+    prompt: input.prompt?.trim(),
+    voice_id: input.voice_id,
+    created_at: new Date().toISOString(),
+  };
+  const next = [...existing, asset];
+  assets.set(campaignId, next);
+  maybePromoteCampaign(campaignId);
   return next;
 }
 
@@ -545,10 +534,7 @@ export function publishEvent(id: string): Event | undefined {
 function generateTicketCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const pick = (n: number) =>
-    Array.from(
-      { length: n },
-      () => chars[Math.floor(Math.random() * chars.length)],
-    ).join("");
+    Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   return `TKT-${pick(4)}-${pick(4)}`;
 }
 
@@ -565,20 +551,17 @@ export function registerAttendee(
 
   // Reuse existing ticket if this email already registered (idempotent re-register)
   const list = attendees.get(eventId) ?? [];
-  const existing = list.find(
-    (a) => a.email.toLowerCase() === data.email.toLowerCase(),
-  );
+  const existing = list.find((a) => a.email.toLowerCase() === data.email.toLowerCase());
 
-  const record: Attendee =
-    existing ?? {
-      id: uid("att"),
-      event_id: eventId,
-      name: data.name,
-      email: data.email,
-      created_at: new Date().toISOString(),
-      ticket_code: generateTicketCode(),
-      metadata: data.metadata,
-    };
+  const record: Attendee = existing ?? {
+    id: uid("att"),
+    event_id: eventId,
+    name: data.name,
+    email: data.email,
+    created_at: new Date().toISOString(),
+    ticket_code: generateTicketCode(),
+    metadata: data.metadata,
+  };
 
   if (!existing) {
     list.push(record);
@@ -629,183 +612,6 @@ export function createAnnouncement(
   list.push(record);
   announcements.set(eventId, list);
   return record;
-}
-
-const REMINDER_OFFSETS: Record<
-  Exclude<ReminderPresetId, "custom">,
-  { label: string; ms: number }
-> = {
-  "7d": { label: "1 week before", ms: 7 * 86400000 },
-  "24h": { label: "24 hours before", ms: 86400000 },
-  "1h": { label: "1 hour before", ms: 3600000 },
-};
-
-const DEFAULT_REMINDER_COPY: Record<
-  Exclude<ReminderPresetId, "custom">,
-  { subject: string; body: string }
-> = {
-  "7d": {
-    subject: "One week until {event}",
-    body: "Your event is coming up in 7 days. Save the date, review the agenda, and make sure your ticket is handy.",
-  },
-  "24h": {
-    subject: "Tomorrow: {event}",
-    body: "You're registered — here's everything you need for tomorrow: join link, schedule, and how to get your ticket ready.",
-  },
-  "1h": {
-    subject: "Starting in 1 hour — {event}",
-    body: "We go live in about an hour. Grab your ticket link below and join us on time.",
-  },
-};
-
-function fillReminderTemplate(text: string, eventTitle: string): string {
-  return text.replace(/\{event\}/g, eventTitle);
-}
-
-function computePresetSchedule(
-  eventDate: string,
-  presetId: Exclude<ReminderPresetId, "custom">,
-): string {
-  return new Date(+new Date(eventDate) - REMINDER_OFFSETS[presetId].ms).toISOString();
-}
-
-export function listReminders(eventId: string): EventReminder[] {
-  return (reminders.get(eventId) ?? [])
-    .slice()
-    .sort((a, b) => +new Date(a.scheduled_for) - +new Date(b.scheduled_for));
-}
-
-export function upsertPresetReminder(
-  eventId: string,
-  presetId: Exclude<ReminderPresetId, "custom">,
-  input: { enabled: boolean; subject?: string; body?: string },
-): EventReminder | undefined {
-  const event = events.get(eventId);
-  if (!event?.event_date) return undefined;
-
-  const list = reminders.get(eventId) ?? [];
-  const existing = list.find((r) => r.preset_id === presetId);
-  const title = event.landing.headline;
-  const defaults = DEFAULT_REMINDER_COPY[presetId];
-
-  if (!input.enabled) {
-    if (existing) {
-      const updated = { ...existing, enabled: false, status: "cancelled" as const };
-      reminders.set(
-        eventId,
-        list.map((r) => (r.id === existing.id ? updated : r)),
-      );
-      return updated;
-    }
-    return undefined;
-  }
-
-  const record: EventReminder = existing
-    ? {
-        ...existing,
-        enabled: true,
-        status: "scheduled",
-        scheduled_for: computePresetSchedule(event.event_date, presetId),
-        subject: input.subject?.trim() || existing.subject,
-        body: input.body?.trim() || existing.body,
-      }
-    : {
-        id: uid("rem"),
-        event_id: eventId,
-        preset_id: presetId,
-        label: REMINDER_OFFSETS[presetId].label,
-        scheduled_for: computePresetSchedule(event.event_date, presetId),
-        subject: fillReminderTemplate(
-          input.subject?.trim() || defaults.subject,
-          title,
-        ),
-        body: fillReminderTemplate(input.body?.trim() || defaults.body, title),
-        status: "scheduled",
-        enabled: true,
-        channel: "email",
-        sent_at: null,
-      };
-
-  if (existing) {
-    reminders.set(
-      eventId,
-      list.map((r) => (r.id === existing.id ? record : r)),
-    );
-  } else {
-    list.push(record);
-    reminders.set(eventId, list);
-  }
-  return record;
-}
-
-export function createCustomReminder(
-  eventId: string,
-  input: {
-    scheduled_for: string;
-    subject: string;
-    body: string;
-    label?: string;
-  },
-): EventReminder | undefined {
-  const event = events.get(eventId);
-  if (!event) return undefined;
-
-  const scheduled = new Date(input.scheduled_for);
-  if (Number.isNaN(scheduled.getTime())) return undefined;
-
-  const record: EventReminder = {
-    id: uid("rem"),
-    event_id: eventId,
-    preset_id: "custom",
-    label: input.label?.trim() || "Custom reminder",
-    scheduled_for: scheduled.toISOString(),
-    subject: input.subject.trim(),
-    body: input.body.trim(),
-    status: "scheduled",
-    enabled: true,
-    channel: "email",
-    sent_at: null,
-  };
-  const list = reminders.get(eventId) ?? [];
-  list.push(record);
-  reminders.set(eventId, list);
-  return record;
-}
-
-export function updateReminder(
-  eventId: string,
-  reminderId: string,
-  patch: Partial<Pick<EventReminder, "subject" | "body" | "enabled" | "scheduled_for">>,
-): EventReminder | undefined {
-  const list = reminders.get(eventId) ?? [];
-  const idx = list.findIndex((r) => r.id === reminderId);
-  if (idx < 0) return undefined;
-
-  const current = list[idx];
-  const updated: EventReminder = {
-    ...current,
-    ...patch,
-    status:
-      patch.enabled === false
-        ? "cancelled"
-        : patch.enabled === true
-          ? "scheduled"
-          : current.status,
-  };
-  list[idx] = updated;
-  reminders.set(eventId, list);
-  return updated;
-}
-
-export function deleteReminder(
-  eventId: string,
-  reminderId: string,
-): boolean {
-  const list = reminders.get(eventId) ?? [];
-  const next = list.filter((r) => r.id !== reminderId);
-  if (next.length === list.length) return false;
-  reminders.set(eventId, next);
-  return true;
 }
 
 export function getEventAttendees(eventId: string): Attendee[] {

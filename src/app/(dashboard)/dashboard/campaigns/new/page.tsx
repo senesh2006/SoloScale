@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   Sparkles,
@@ -15,16 +15,16 @@ import {
   Wand2,
   ImageIcon,
   Mic,
+  Upload,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import type { Campaign } from "@/types/campaign";
+import type { VisionCampaignSeed } from "@/types/dev1-ai";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/TextField";
 import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/lib/utils";
-import { VisionSeedUploader } from "@/components/campaign/VisionSeedUploader";
-import type { VisionCampaignSeed } from "@/types/vision";
 
 type Mode = "all" | "strategy";
 
@@ -66,13 +66,6 @@ const examplePrompts: Record<Mode, string[]> = {
 export default function NewCampaignPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("all");
-  const [visionSeed, setVisionSeed] = useState<VisionCampaignSeed | null>(null);
-  const [visionSeedVersion, setVisionSeedVersion] = useState(0);
-
-  function applyVisionSeed(seed: VisionCampaignSeed) {
-    setVisionSeed(seed);
-    setVisionSeedVersion((v) => v + 1);
-  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -155,27 +148,10 @@ export default function NewCampaignPage() {
         })}
       </div>
 
-      <VisionSeedUploader
-        className="animate-fade-up"
-        onApply={applyVisionSeed}
-      />
-
       {/* Active form */}
       <div key={mode} className="animate-fade-up">
-        {mode === "all" && (
-          <AllInOneForm
-            router={router}
-            visionSeed={visionSeed}
-            visionSeedVersion={visionSeedVersion}
-          />
-        )}
-        {mode === "strategy" && (
-          <StrategyOnlyForm
-            router={router}
-            visionSeed={visionSeed}
-            visionSeedVersion={visionSeedVersion}
-          />
-        )}
+        {mode === "all" && <AllInOneForm router={router} />}
+        {mode === "strategy" && <StrategyOnlyForm router={router} />}
       </div>
 
       {/* Standalone-assets callout */}
@@ -252,21 +228,10 @@ function fillExample(value: string) {
 /* ============================================================
    All-in-one
    ============================================================ */
-function isoToDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function AllInOneForm({
   router,
-  visionSeed,
-  visionSeedVersion,
 }: {
   router: ReturnType<typeof useRouter>;
-  visionSeed: VisionCampaignSeed | null;
-  visionSeedVersion: number;
 }) {
   const [title, setTitle] = useState("React Workshop Campaign");
   const [goal, setGoal] = useState(
@@ -276,16 +241,6 @@ function AllInOneForm({
   const [audience, setAudience] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!visionSeed || visionSeedVersion === 0) return;
-    setTitle(visionSeed.title);
-    setGoal(visionSeed.goal);
-    setAudience(visionSeed.audience);
-    if (visionSeed.event_date) {
-      setEventDate(isoToDatetimeLocal(visionSeed.event_date));
-    }
-  }, [visionSeed, visionSeedVersion]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -322,6 +277,15 @@ function AllInOneForm({
       loading={loading}
       error={error}
     >
+      <SketchExtractSection
+        onSeed={(seed) => {
+          if (seed.campaignTitle) setTitle(seed.campaignTitle);
+          if (seed.goal) setGoal(seed.goal);
+          if (seed.audience) setAudience(seed.audience);
+          if (seed.eventDate) setEventDate(seedDateToDatetimeLocal(seed.eventDate));
+        }}
+      />
+
       <TextField
         name="title"
         label="Campaign title"
@@ -374,25 +338,15 @@ function AllInOneForm({
    ============================================================ */
 function StrategyOnlyForm({
   router,
-  visionSeed,
-  visionSeedVersion,
 }: {
   router: ReturnType<typeof useRouter>;
-  visionSeed: VisionCampaignSeed | null;
-  visionSeedVersion: number;
 }) {
   const [title, setTitle] = useState("");
   const [goal, setGoal] = useState("");
+  const [eventDate, setEventDate] = useState("");
   const [audience, setAudience] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!visionSeed || visionSeedVersion === 0) return;
-    setTitle(visionSeed.title);
-    setGoal(visionSeed.goal);
-    setAudience(visionSeed.audience);
-  }, [visionSeed, visionSeedVersion]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -407,6 +361,7 @@ function StrategyOnlyForm({
             mode: "strategy",
             title: title.trim() || derivedTitle(goal),
             goal_prompt: goal,
+            event_date: eventDate || null,
             audience: audience || null,
           }),
         },
@@ -428,14 +383,14 @@ function StrategyOnlyForm({
       loading={loading}
       error={error}
     >
-      <TextField
-        name="title"
-        label="Campaign title"
-        leftIcon={<Type className="h-4 w-4" />}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Filled from your sketch or type your own"
-        hint="Optional — we derive one from your goal if blank"
+      <SketchExtractSection
+        compact
+        onSeed={(seed) => {
+          if (seed.campaignTitle) setTitle(seed.campaignTitle);
+          if (seed.goal) setGoal(seed.goal);
+          if (seed.audience) setAudience(seed.audience);
+          if (seed.eventDate) setEventDate(seedDateToDatetimeLocal(seed.eventDate));
+        }}
       />
 
       <Textarea
@@ -451,17 +406,145 @@ function StrategyOnlyForm({
         hint="Output: 2 weeks of tweets, LinkedIn posts, and email beats."
       />
 
-      <TextField
-        name="audience"
-        label="Audience"
-        leftIcon={<Users className="h-4 w-4" />}
-        value={audience}
-        onChange={(e) => setAudience(e.target.value)}
-        placeholder="e.g. indie founders, local parents"
-        hint="Optional — from vision scan or type manually"
-      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField
+          name="event_date"
+          label="Event date"
+          type="datetime-local"
+          leftIcon={<CalendarIcon className="h-4 w-4" />}
+          value={eventDate}
+          onChange={(e) => setEventDate(e.target.value)}
+          hint="Optional"
+        />
+        <TextField
+          name="audience"
+          label="Audience"
+          leftIcon={<Users className="h-4 w-4" />}
+          value={audience}
+          onChange={(e) => setAudience(e.target.value)}
+          placeholder="e.g. indie founders"
+          hint="Optional"
+        />
+      </div>
     </FormShell>
   );
+}
+
+/* ============================================================
+   Sketch extract
+   ============================================================ */
+function SketchExtractSection({
+  onSeed,
+  compact = false,
+}: {
+  onSeed: (seed: VisionCampaignSeed) => void;
+  compact?: boolean;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [hint, setHint] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [extracted, setExtracted] = useState(false);
+
+  async function extract() {
+    if (!file) {
+      setExtractError("Choose a sketch image first.");
+      return;
+    }
+    setExtracting(true);
+    setExtractError(null);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      if (hint.trim()) form.append("hint", hint.trim());
+      const res = await fetch("/api/vision/campaign-seed", {
+        method: "POST",
+        body: form,
+      });
+      const body = (await res.json()) as { seed?: VisionCampaignSeed; error?: string };
+      if (!res.ok) {
+        throw new Error(body.error ?? "Could not read sketch");
+      }
+      if (!body.seed) throw new Error("No seed returned from vision");
+      onSeed(body.seed);
+      setExtracted(true);
+    } catch (err) {
+      setExtractError(err instanceof Error ? err.message : "Extract failed");
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80",
+        compact ? "p-3 space-y-2" : "p-4 space-y-3",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <Upload className={cn("shrink-0 text-violet-500", compact ? "h-4 w-4 mt-0.5" : "h-5 w-5")} />
+        <div className="min-w-0 flex-1">
+          <p className={cn("font-medium text-zinc-900", compact ? "text-xs" : "text-sm")}>
+            Start from a sketch
+          </p>
+          <p className={cn("text-zinc-500", compact ? "text-[11px] leading-snug" : "text-xs")}>
+            Upload a whiteboard or napkin photo — AI fills the form below.
+          </p>
+        </div>
+      </div>
+
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="block w-full text-xs text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-zinc-700 hover:file:bg-zinc-100"
+        onChange={(e) => {
+          setFile(e.target.files?.[0] ?? null);
+          setExtracted(false);
+          setExtractError(null);
+        }}
+      />
+
+      {!compact && (
+        <TextField
+          name="sketch_hint"
+          label="Hint (optional)"
+          value={hint}
+          onChange={(e) => setHint(e.target.value)}
+          placeholder="e.g. focus on the workshop date in the corner"
+          hint="Helps when handwriting is unclear"
+        />
+      )}
+
+      {extractError && (
+        <p className="text-xs font-medium text-red-600">{extractError}</p>
+      )}
+      {extracted && !extractError && (
+        <p className="text-xs font-medium text-emerald-600">
+          Fields updated from sketch — review and edit before submitting.
+        </p>
+      )}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        loading={extracting}
+        disabled={!file}
+        onClick={() => void extract()}
+        leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+      >
+        {extracting ? "Reading sketch…" : "Extract from sketch"}
+      </Button>
+    </div>
+  );
+}
+
+function seedDateToDatetimeLocal(iso?: string): string {
+  if (!iso?.trim()) return "";
+  const day = iso.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return "";
+  return `${day}T09:00`;
 }
 
 /* ============================================================
