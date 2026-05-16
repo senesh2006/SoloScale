@@ -100,6 +100,8 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
+  const needsOwnerBackfill = !owned.data.user_id;
+
   const body = (await request.json().catch(() => ({}))) as PatchBody;
 
   if (
@@ -130,6 +132,9 @@ export async function PATCH(request: Request, { params }: Params) {
       : null;
   }
   if (body.location !== undefined) update.location = body.location;
+  if (needsOwnerBackfill) {
+    update.user_id = userId;
+  }
 
   await db.collection(COLLECTIONS.events).doc(id).update(update);
   const fresh = await db.collection(COLLECTIONS.events).doc(id).get();

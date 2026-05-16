@@ -55,6 +55,14 @@ export async function createEventFromStrategy(
     strategy: CampaignStrategy;
   },
 ): Promise<string> {
+  const campaignRef = db.collection(COLLECTIONS.campaigns).doc(args.campaignId);
+  const campaignSnap = await campaignRef.get();
+  if (!campaignSnap.exists) {
+    throw new Error("CAMPAIGN_NOT_FOUND");
+  }
+  const ownerUserId =
+    (campaignSnap.data()?.user_id as string | undefined) ?? null;
+
   const slug = await uniqueEventSlug(db, args.title);
   const eventRef = db.collection(COLLECTIONS.events).doc();
   const formFields = (args.strategy.event_draft.form_fields ??
@@ -63,6 +71,7 @@ export async function createEventFromStrategy(
   const batch = db.batch();
   batch.set(eventRef, {
     campaign_id: args.campaignId,
+    user_id: ownerUserId,
     slug,
     published: false,
     landing: {
@@ -81,7 +90,7 @@ export async function createEventFromStrategy(
     created_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
   });
-  batch.update(db.collection(COLLECTIONS.campaigns).doc(args.campaignId), {
+  batch.update(campaignRef, {
     event_id: eventRef.id,
     event_ids: FieldValue.arrayUnion(eventRef.id),
     updated_at: FieldValue.serverTimestamp(),

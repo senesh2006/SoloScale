@@ -60,6 +60,7 @@ export async function POST(request: Request) {
 
       tx.set(eventRef, {
         campaign_id: input.campaign_id,
+        user_id: userId,
         slug: input.slug,
         published: input.published ?? false,
         landing: input.landing,

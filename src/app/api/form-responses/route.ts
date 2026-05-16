@@ -4,7 +4,6 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 import {
   firebaseNotConfigured,
-  getAuthenticatedUid,
   resolveUserId,
   unauthorized,
 } from "@/lib/firebase/auth-helpers";
@@ -112,7 +111,6 @@ export async function POST(request: Request) {
   const input = parsed.data;
 
   const db = getAdminDb();
-  const userId = await getAuthenticatedUid(request);
 
   const attendeeRef = db.collection(COLLECTIONS.attendees).doc(input.attendee_id);
   const attendeeSnap = await attendeeRef.get();
@@ -133,7 +131,23 @@ export async function POST(request: Request) {
   if (!eventSnap.exists) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
-  const campaignId = (eventSnap.data()?.campaign_id as string) ?? "";
+  const eventData = eventSnap.data() ?? {};
+  const actingUser = await resolveUserId(request);
+  const isOrganizer =
+    actingUser !== null &&
+    (await getOwnedEvent(db, input.event_id, actingUser)).ok;
+  if (!isOrganizer && eventData.published !== true) {
+    return NextResponse.json(
+      { error: "This event is not open for registration" },
+      { status: 403 },
+    );
+  }
+  const campaignId = (eventData.campaign_id as string) ?? "";
+  let organizerUserId = eventData.user_id as string | undefined;
+  if (!organizerUserId && campaignId) {
+    const camp = await db.collection(COLLECTIONS.campaigns).doc(campaignId).get();
+    organizerUserId = camp.data()?.user_id as string | undefined;
+  }
 
   // Idempotency: look up an existing response for this (event_id, attendee_id).
   const existingSnap = await db
@@ -161,7 +175,7 @@ export async function POST(request: Request) {
       event_id: input.event_id,
       campaign_id: campaignId,
       attendee_id: input.attendee_id,
-      user_id: userId,
+      user_id: organizerUserId ?? null,
       email: input.email.toLowerCase(),
       name: input.name,
       answers: input.answers,

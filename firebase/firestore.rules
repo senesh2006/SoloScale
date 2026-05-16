@@ -8,6 +8,10 @@ rules_version = '2';
 // API (which uses Firebase Admin and bypasses these rules), so client-side
 // writes are restricted to the bare minimum needed for direct reads from the
 // web client (currently just listing campaigns/events you own).
+//
+// Event ownership is defined by the parent campaign's user_id (single source
+// of truth). Event docs also store user_id for convenience, but rules do not
+// rely on it so older rows without user_id remain protected.
 // ----------------------------------------------------------------------------
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -26,10 +30,12 @@ service cloud.firestore {
              .data.user_id == request.auth.uid;
     }
 
+    /** True when the signed-in user owns the campaign that owns this event. */
     function ownsEvent(eventId) {
       return signedIn()
-        && get(/databases/$(database)/documents/events/$(eventId))
-             .data.user_id == request.auth.uid;
+        && ownsCampaign(
+          get(/databases/$(database)/documents/events/$(eventId)).data.campaign_id
+        );
     }
 
     // ---------------- users/{uid} ----------------
@@ -50,15 +56,17 @@ service cloud.firestore {
 
     // ---------------- events/{eventId} ----------------
     // PUBLIC: anyone can read a published event (powers landing pages).
-    // OWNER: full read of unpublished events + writes.
+    // ORGANIZER: full read/write of drafts via parent campaign ownership.
     match /events/{eventId} {
       allow read:
         if resource.data.published == true
-           || (signedIn() && resource.data.user_id == request.auth.uid);
+           || (signedIn() && ownsCampaign(resource.data.campaign_id));
       allow create:
-        if signedIn() && request.resource.data.user_id == request.auth.uid;
+        if signedIn()
+          && request.resource.data.user_id == request.auth.uid
+          && ownsCampaign(request.resource.data.campaign_id);
       allow update, delete:
-        if signedIn() && resource.data.user_id == request.auth.uid;
+        if signedIn() && ownsCampaign(resource.data.campaign_id);
     }
 
     // ---------------- assets/{assetId} ----------------
@@ -67,23 +75,31 @@ service cloud.firestore {
         if signedIn() && resource.data.user_id == request.auth.uid;
     }
 
+    function eventPublished(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.published == true;
+    }
+
     // ---------------- attendees/{attendeeId} ----------------
-    // PUBLIC create: registration is open to anonymous visitors. Reads are
-    // owner-only (event owner == campaign owner).
+    // Create only for published events (registration). Reads/updates: organizer.
     match /attendees/{attendeeId} {
-      allow create: if true;
+      allow create: if eventPublished(request.resource.data.event_id);
       allow read:   if ownsEvent(resource.data.event_id);
       allow update: if ownsEvent(resource.data.event_id);
       allow delete: if false;
     }
 
     // ---------------- form_responses/{responseId} ----------------
-    // PUBLIC create (paired with attendee creation during public registration).
-    // Reads owner-only.
+    // Create only for published events. Reads: host uid or campaign owner.
     match /form_responses/{responseId} {
-      allow create: if true;
-      allow read:   if signedIn() && resource.data.user_id == request.auth.uid;
-      allow update: if signedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if eventPublished(request.resource.data.event_id);
+      allow read:   if signedIn() && (
+        resource.data.user_id == request.auth.uid
+        || ownsEvent(resource.data.event_id)
+      );
+      allow update: if signedIn() && (
+        resource.data.user_id == request.auth.uid
+        || ownsEvent(resource.data.event_id)
+      );
       allow delete: if false;
     }
 

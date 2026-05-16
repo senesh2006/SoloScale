@@ -3,9 +3,20 @@ import {
   aiFetchMultipart,
   isAiServiceEnabled,
 } from "@/lib/ai-service-client";
+import {
+  firebaseNotConfigured,
+  resolveUserId,
+  unauthorized,
+} from "@/lib/firebase/auth-helpers";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
 import type { VisionCampaignSeed } from "@/types/dev1-ai";
 
 export async function POST(request: Request) {
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
+  const userId = await resolveUserId(request);
+  if (!userId) return unauthorized();
+
   if (!isAiServiceEnabled()) {
     return NextResponse.json(
       { error: "AI service is disabled. Set AI_SERVICE_URL in .env.local." },

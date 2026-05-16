@@ -15,6 +15,7 @@ import type { VisionCampaignSeed } from "@/types/vision";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
+import { getCurrentIdToken } from "@/lib/firebase/auth-context";
 
 type Props = {
   onApply: (seed: VisionCampaignSeed) => void;
@@ -73,10 +74,25 @@ export function VisionSeedUploader({ onApply, className }: Props) {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/campaigns/vision-seed", {
+      const headers = new Headers();
+      const token = await getCurrentIdToken();
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      let res = await fetch("/api/campaigns/vision-seed", {
         method: "POST",
         body: form,
+        headers,
       });
+      if (res.status === 401 && token) {
+        const fresh = await getCurrentIdToken(true);
+        if (fresh) {
+          headers.set("Authorization", `Bearer ${fresh}`);
+          res = await fetch("/api/campaigns/vision-seed", {
+            method: "POST",
+            body: form,
+            headers,
+          });
+        }
+      }
       const data = (await res.json().catch(() => ({}))) as {
         seed?: VisionCampaignSeed;
         error?: string;

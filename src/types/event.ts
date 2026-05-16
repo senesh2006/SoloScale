@@ -11,6 +11,8 @@ import type {
 /** `events/{eventId}` — Firestore document (no doc id in body). */
 export type EventDocument = {
   campaign_id: string;
+  /** Denormalized campaign owner — used by rules and form response ownership. */
+  user_id?: string | null;
   slug: string;
   published: boolean;
   landing: Landing;
@@ -30,6 +32,7 @@ export type EventDocument = {
 export type Event = {
   id: string;
   campaign_id: string;
+  user_id?: string | null;
   slug: string;
   published: boolean;
   landing: Landing;

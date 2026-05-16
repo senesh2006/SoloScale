@@ -33,14 +33,18 @@ export async function GET(request: Request, { params }: Params) {
   }
   const data = snap.data() ?? {};
   const eventId = data.event_id as string | undefined;
-  if (eventId) {
-    const owned = await getOwnedEvent(db, eventId, userId);
-    if (!owned.ok) {
-      return NextResponse.json(
-        { error: owned.error },
-        { status: owned.status },
-      );
-    }
+  if (!eventId) {
+    return NextResponse.json(
+      { error: "Form response not found" },
+      { status: 404 },
+    );
+  }
+  const owned = await getOwnedEvent(db, eventId, userId);
+  if (!owned.ok) {
+    return NextResponse.json(
+      { error: owned.error },
+      { status: owned.status },
+    );
   }
   return NextResponse.json({ form_response: snapshotToObject(snap) });
 }

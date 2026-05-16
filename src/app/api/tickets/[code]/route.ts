@@ -40,6 +40,9 @@ export async function GET(_request: Request, { params }: Params) {
   if (!eventSnap.exists) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
+  if (eventSnap.data()?.published !== true) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
 
   return NextResponse.json({
     attendee: snapshotToObject(attendeeDoc),

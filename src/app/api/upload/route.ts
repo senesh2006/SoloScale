@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAdminStorage } from "@/lib/firebase/admin";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
-import { firebaseNotConfigured } from "@/lib/firebase/auth-helpers";
+import {
+  firebaseNotConfigured,
+  resolveUserId,
+  unauthorized,
+} from "@/lib/firebase/auth-helpers";
 
 const ALLOWED = new Set([
   "image/png",
@@ -36,6 +40,9 @@ function extFor(contentType: string): string {
  */
 export async function POST(request: Request) {
   if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
+  const userId = await resolveUserId(request);
+  if (!userId) return unauthorized();
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");

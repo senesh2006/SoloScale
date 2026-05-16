@@ -104,6 +104,17 @@ export async function POST(request: Request) {
     );
   }
 
+  const eventSnap = await db
+    .collection(COLLECTIONS.events)
+    .doc(input.event_id)
+    .get();
+  if (!eventSnap.exists || eventSnap.data()?.published !== true) {
+    return NextResponse.json(
+      { error: "Event is not open for payments" },
+      { status: 403 },
+    );
+  }
+
   const paymentRef = db.collection(COLLECTIONS.payments).doc();
   const isSucceeded = input.status === "succeeded";
 

@@ -18,6 +18,7 @@ import {
   Upload,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { getCurrentIdToken } from "@/lib/firebase/auth-context";
 import type { Campaign } from "@/types/campaign";
 import type { VisionCampaignSeed } from "@/types/dev1-ai";
 import { Button } from "@/components/ui/Button";
@@ -455,10 +456,25 @@ function SketchExtractSection({
       const form = new FormData();
       form.append("image", file);
       if (hint.trim()) form.append("hint", hint.trim());
-      const res = await fetch("/api/vision/campaign-seed", {
+      const headers = new Headers();
+      const token = await getCurrentIdToken();
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      let res = await fetch("/api/vision/campaign-seed", {
         method: "POST",
         body: form,
+        headers,
       });
+      if (res.status === 401 && token) {
+        const fresh = await getCurrentIdToken(true);
+        if (fresh) {
+          headers.set("Authorization", `Bearer ${fresh}`);
+          res = await fetch("/api/vision/campaign-seed", {
+            method: "POST",
+            body: form,
+            headers,
+          });
+        }
+      }
       const body = (await res.json()) as { seed?: VisionCampaignSeed; error?: string };
       if (!res.ok) {
         throw new Error(body.error ?? "Could not read sketch");

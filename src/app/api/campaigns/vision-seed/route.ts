@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { analyzeCampaignSketch } from "@/services/ai/gemini-vision";
+import {
+  firebaseNotConfigured,
+  resolveUserId,
+  unauthorized,
+} from "@/lib/firebase/auth-helpers";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "image/heic"]);
 const MAX_BYTES = 4 * 1024 * 1024;
 
 export async function POST(request: Request) {
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
+  const userId = await resolveUserId(request);
+  if (!userId) return unauthorized();
+
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
 
