@@ -267,7 +267,7 @@ export function getCalendarEntries(from: string, to: string): CalendarEntry[] {
       const at = +new Date(item.scheduled_at);
       if (at >= fromMs && at <= toMs) {
         entries.push({
-          id: item.id,
+          id: `${campaign.id}-${item.id}`,
           campaign_id: campaign.id,
           campaign_title: campaign.title,
           type: item.type,
