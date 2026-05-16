@@ -1,21 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { ArrowRight, Mail, Lock } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ArrowRight, Mail, Lock, Phone } from "lucide-react";
 import { AuthShell } from "@/components/layout/AuthShell";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
+import { PhoneAuthForm } from "@/components/auth/PhoneAuthForm";
+import { useAuth } from "@/lib/firebase/auth-context";
+
+type Mode = "email" | "google" | "phone";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const params = useSearchParams();
+  const next = params.get("next") || "/dashboard";
+  const { user, initializing, signInWithEmail, signInWithGoogle } = useAuth();
+  const [mode, setMode] = useState<Mode>("email");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleLogin(e: React.FormEvent) {
+  useEffect(() => {
+    if (!initializing && user) router.replace(next);
+  }, [initializing, user, router, next]);
+
+  async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setTimeout(() => router.push("/dashboard"), 600);
+    setBusy(true);
+    setError(null);
+    try {
+      await signInWithEmail(email, password);
+      router.replace(next);
+    } catch (err) {
+      setError(humanizeAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    setBusy(true);
+    try {
+      await signInWithGoogle();
+      router.replace(next);
+    } catch (err) {
+      setError(humanizeAuthError(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -24,7 +60,7 @@ export default function LoginPage() {
       subtitle="Log in to your AI marketing workspace."
       footer={
         <>
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/signup"
             className="font-semibold text-violet-600 hover:text-violet-700"
@@ -34,73 +70,181 @@ export default function LoginPage() {
         </>
       }
     >
-      <form onSubmit={handleLogin} className="space-y-5">
-        <TextField
-          name="email"
-          type="email"
-          label="Email"
-          placeholder="you@example.com"
-          leftIcon={<Mail className="h-4 w-4" />}
-          required
-          autoComplete="email"
-        />
-        <TextField
-          name="password"
-          type="password"
-          label="Password"
-          placeholder="••••••••"
-          leftIcon={<Lock className="h-4 w-4" />}
-          required
-          autoComplete="current-password"
-          rightSlot={
-            <Link
-              href="#"
-              className="text-xs font-medium text-violet-600 hover:text-violet-700"
+      <div className="space-y-5">
+        <p className="text-xs text-zinc-500">
+          Pick one — email, Google, or phone is enough to log in.
+        </p>
+        <ModeTabs mode={mode} onChange={setMode} />
+
+        {mode === "email" && (
+          <form onSubmit={handleEmailLogin} className="space-y-5">
+            <TextField
+              name="email"
+              type="email"
+              label="Email"
+              placeholder="you@example.com"
+              leftIcon={<Mail className="h-4 w-4" />}
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <TextField
+              name="password"
+              type="password"
+              label="Password"
+              placeholder="••••••••"
+              leftIcon={<Lock className="h-4 w-4" />}
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              rightSlot={
+                <Link
+                  href="#"
+                  className="text-xs font-medium text-violet-600 hover:text-violet-700"
+                >
+                  Forgot?
+                </Link>
+              }
+            />
+            {error && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                {error}
+              </p>
+            )}
+            <Button
+              type="submit"
+              variant="dark"
+              size="lg"
+              className="w-full"
+              loading={busy}
+              rightIcon={!busy ? <ArrowRight className="h-4 w-4" /> : undefined}
             >
-              Forgot?
-            </Link>
-          }
-        />
+              {busy ? "Signing in" : "Log in"}
+            </Button>
+          </form>
+        )}
 
-        <Button
-          type="submit"
-          variant="dark"
-          size="lg"
-          className="w-full"
-          loading={loading}
-          rightIcon={!loading ? <ArrowRight className="h-4 w-4" /> : undefined}
-        >
-          {loading ? "Signing in" : "Log in"}
-        </Button>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-zinc-100" />
+        {mode === "google" && (
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-600">
+              Use your Google account to sign in — we&apos;ll never see your
+              password.
+            </p>
+            {error && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                {error}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={busy}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60"
+            >
+              <GoogleMark />
+              {busy ? "Opening Google…" : "Continue with Google"}
+            </button>
           </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-white px-3 text-zinc-400">or continue with</span>
-          </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            <GoogleMark />
-            Google
-          </button>
-          <button
-            type="button"
-            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            <GitHubMark />
-            GitHub
-          </button>
-        </div>
-      </form>
+        {mode === "phone" && (
+          <PhoneAuthForm
+            onSuccess={() => router.replace(next)}
+            recaptchaContainerId="recaptcha-login"
+            sendLabel="Send code"
+            verifyLabel="Log in"
+          />
+        )}
+      </div>
     </AuthShell>
   );
+}
+
+function ModeTabs({
+  mode,
+  onChange,
+}: {
+  mode: Mode;
+  onChange: (m: Mode) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Sign-in method"
+      className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-sm"
+    >
+      <TabButton
+        active={mode === "email"}
+        onClick={() => onChange("email")}
+        icon={<Mail className="h-3.5 w-3.5" />}
+        label="Email"
+      />
+      <TabButton
+        active={mode === "google"}
+        onClick={() => onChange("google")}
+        icon={<GoogleMark />}
+        label="Google"
+      />
+      <TabButton
+        active={mode === "phone"}
+        onClick={() => onChange("phone")}
+        icon={<Phone className="h-3.5 w-3.5" />}
+        label="Phone"
+      />
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={[
+        "flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition-colors",
+        active
+          ? "bg-white text-zinc-950 shadow-sm"
+          : "text-zinc-500 hover:text-zinc-900",
+      ].join(" ")}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function humanizeAuthError(err: unknown): string {
+  const code = (err as { code?: string }).code ?? "";
+  if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
+    return "Invalid email or password.";
+  }
+  if (code === "auth/user-not-found") {
+    return "No account with that email — try signing up.";
+  }
+  if (code === "auth/too-many-requests") {
+    return "Too many attempts. Wait a moment and try again.";
+  }
+  if (code === "auth/popup-closed-by-user") {
+    return "Sign-in cancelled.";
+  }
+  if (code === "auth/network-request-failed") {
+    return "Network error — check your connection.";
+  }
+  return err instanceof Error ? err.message : "Could not sign in.";
 }
 
 function GoogleMark() {
@@ -122,14 +266,6 @@ function GoogleMark() {
         fill="#1976D2"
         d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2C41.9 35.8 44 30.3 44 24c0-1.3-.1-2.3-.4-3.5z"
       />
-    </svg>
-  );
-}
-
-function GitHubMark() {
-  return (
-    <svg viewBox="0 0 16 16" className="h-4 w-4 fill-zinc-900">
-      <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 005.47 7.59c.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.08-2.7-1.08-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.88 2.34.67.07-.52.28-.88.51-1.08-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.6 7.6 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.74.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0016 8c0-4.42-3.58-8-8-8z" />
     </svg>
   );
 }

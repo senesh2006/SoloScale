@@ -1,33 +1,109 @@
 rules_version = '2';
+
+// ----------------------------------------------------------------------------
+// SoloScale Firestore security rules
+//
+// Default-deny everything. Each collection explicitly whitelists what
+// authenticated users can read / write. Writes always go through our Next.js
+// API (which uses Firebase Admin and bypasses these rules), so client-side
+// writes are restricted to the bare minimum needed for direct reads from the
+// web client (currently just listing campaigns/events you own).
+// ----------------------------------------------------------------------------
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function signedIn() {
       return request.auth != null;
     }
 
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
     function ownsCampaign(campaignId) {
       return signedIn()
-        && get(/databases/$(database)/documents/campaigns/$(campaignId)).data.user_id == request.auth.uid;
+        && get(/databases/$(database)/documents/campaigns/$(campaignId))
+             .data.user_id == request.auth.uid;
     }
 
+    function ownsEvent(eventId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/events/$(eventId))
+             .data.user_id == request.auth.uid;
+    }
+
+    // ---------------- users/{uid} ----------------
+    // A user can read/update their own profile. Creates flow through the
+    // Next.js API, so deny client-side create.
+    match /users/{uid} {
+      allow read, update: if isOwner(uid);
+      allow create, delete: if false;
+    }
+
+    // ---------------- campaigns/{campaignId} ----------------
     match /campaigns/{campaignId} {
-      allow read, write: if signedIn() && resource.data.user_id == request.auth.uid;
-      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow read, update, delete:
+        if signedIn() && resource.data.user_id == request.auth.uid;
+      allow create:
+        if signedIn() && request.resource.data.user_id == request.auth.uid;
     }
 
+    // ---------------- events/{eventId} ----------------
+    // PUBLIC: anyone can read a published event (powers landing pages).
+    // OWNER: full read of unpublished events + writes.
     match /events/{eventId} {
-      allow read: if resource.data.published == true;
-      allow write: if signedIn() && ownsCampaign(resource.data.campaign_id);
-      allow create: if signedIn();
+      allow read:
+        if resource.data.published == true
+           || (signedIn() && resource.data.user_id == request.auth.uid);
+      allow create:
+        if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete:
+        if signedIn() && resource.data.user_id == request.auth.uid;
     }
 
+    // ---------------- assets/{assetId} ----------------
     match /assets/{assetId} {
-      allow read, write: if signedIn() && ownsCampaign(resource.data.campaign_id);
+      allow read, write:
+        if signedIn() && resource.data.user_id == request.auth.uid;
     }
 
+    // ---------------- attendees/{attendeeId} ----------------
+    // PUBLIC create: registration is open to anonymous visitors. Reads are
+    // owner-only (event owner == campaign owner).
     match /attendees/{attendeeId} {
       allow create: if true;
-      allow read: if signedIn();
+      allow read:   if ownsEvent(resource.data.event_id);
+      allow update: if ownsEvent(resource.data.event_id);
+      allow delete: if false;
     }
+
+    // ---------------- form_responses/{responseId} ----------------
+    // PUBLIC create (paired with attendee creation during public registration).
+    // Reads owner-only.
+    match /form_responses/{responseId} {
+      allow create: if true;
+      allow read:   if signedIn() && resource.data.user_id == request.auth.uid;
+      allow update: if signedIn() && resource.data.user_id == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ---------------- announcements/{announcementId} ----------------
+    match /announcements/{announcementId} {
+      allow read, write:
+        if signedIn() && resource.data.user_id == request.auth.uid;
+    }
+
+    // ---------------- event_reminders/{reminderId} ----------------
+    match /event_reminders/{reminderId} {
+      allow read, write:
+        if signedIn() && resource.data.user_id == request.auth.uid;
+    }
+
+    // ---------------- billing collections ----------------
+    // All billing flows live behind the API. Deny direct client access.
+    match /subscriptions/{id}     { allow read, write: if false; }
+    match /payment_methods/{id}   { allow read, write: if false; }
+    match /invoices/{id}          { allow read, write: if false; }
+    match /payments/{id}          { allow read, write: if false; }
   }
 }

@@ -12,12 +12,12 @@ export type AssetDocument = {
   url: string | null;
   thumbnail_url: string | null;
   error_message: string | null;
-  /** Display label shown in the dashboard ("Flyer 1", "Voiceover 2", …). */
-  label?: string;
+  /** Display label shown in the dashboard ("Hero flyer", "Strategy voice-over", …). */
+  label?: string | null;
   /** Generation input — flyer prompt or voice script. */
-  prompt?: string;
+  prompt?: string | null;
   /** ElevenLabs voice id when `kind = "voiceover"`. */
-  voice_id?: string;
+  voice_id?: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

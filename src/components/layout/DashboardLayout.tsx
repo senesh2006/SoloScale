@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
   LayoutDashboard,
@@ -20,6 +20,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { cn, initials } from "@/lib/utils";
 import { CampaignNavTree } from "@/components/layout/CampaignNavTree";
+import { useAuth } from "@/lib/firebase/auth-context";
 
 type NavItem = {
   href: string;
@@ -41,6 +42,8 @@ type MeResponse = {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -51,8 +54,26 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       .catch(() => setMe(null));
   }, []);
 
-  const displayName = me?.user?.name?.trim() || (me?.uid ? "Your account" : "");
-  const displayEmail = me?.user?.email?.trim() || me?.uid || "";
+  const displayName =
+    me?.user?.name?.trim() ||
+    user?.displayName?.trim() ||
+    user?.email ||
+    user?.phoneNumber ||
+    "Your account";
+  const displayEmail =
+    me?.user?.email?.trim() ||
+    user?.email ||
+    user?.phoneNumber ||
+    me?.uid ||
+    "";
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+    } finally {
+      router.replace("/login");
+    }
+  }
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -200,7 +221,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                   <Settings className="h-4 w-4 text-zinc-400" />
                   Settings
                 </button>
-                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
                   <LogOut className="h-4 w-4" />
                   Log out
                 </button>
