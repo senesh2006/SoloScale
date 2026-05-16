@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType, type Schema } from "@google/generative-ai";
 import type { VisionCampaignSeed } from "@/types/vision";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -34,7 +34,7 @@ const visionSeedSchema = {
     },
   },
   required: ["title", "goal", "audience", "event_date", "board_summary", "confidence"],
-};
+} as unknown as Schema;
 
 export async function analyzeCampaignSketch(input: {
   imageBase64: string;

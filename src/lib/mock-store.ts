@@ -2,6 +2,8 @@ import demoStrategy from "@/mocks/demo-campaign.json";
 import type {
   AiHeroMeta,
   Announcement,
+  EventReminder,
+  ReminderPresetId,
   Asset,
   AssetKind,
   Attendee,
@@ -21,6 +23,7 @@ const globalForMock = global as unknown as {
   assets: Map<string, Asset[]>;
   attendees: Map<string, Attendee[]>;
   announcements: Map<string, Announcement[]>;
+  reminders: Map<string, EventReminder[]>;
 };
 
 const campaigns = globalForMock.campaigns || new Map<string, Campaign>();
@@ -29,6 +32,8 @@ const assets = globalForMock.assets || new Map<string, Asset[]>();
 const attendees = globalForMock.attendees || new Map<string, Attendee[]>();
 const announcements =
   globalForMock.announcements || new Map<string, Announcement[]>();
+const reminders =
+  globalForMock.reminders || new Map<string, EventReminder[]>();
 
 // Initialize with a demo campaign if empty
 if (campaigns.size === 0) {
@@ -46,6 +51,7 @@ if (campaigns.size === 0) {
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
     updated_at: new Date(Date.now() - 86400000).toISOString(),
     event_id: eventId,
+    event_ids: [eventId],
   });
 
   events.set(eventId, {
@@ -61,6 +67,8 @@ if (campaigns.size === 0) {
     form_fields: strategy.event_draft.form_fields,
     attendee_count: 42,
     price: { amount_cents: 2500, currency: "USD" },
+    event_date: new Date(Date.now() + 86400000 * 10).toISOString(),
+    location: "Virtual · Zoom + livestream",
     media: {
       hero_url:
         "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=2000&q=80",
@@ -97,8 +105,6 @@ if (campaigns.size === 0) {
       },
     ],
     sponsors_display: "grid",
-    event_date: new Date(Date.now() + 86400000 * 10).toISOString(),
-    location: "Virtual · Zoom + livestream",
   });
 
   assets.set(demoId, [
@@ -143,6 +149,23 @@ if (campaigns.size === 0) {
       channel: "email",
     },
   ]);
+
+  const eventDate = events.get(eventId)!.event_date!;
+  reminders.set(eventId, [
+  {
+      id: "rem_demo_24h",
+      event_id: eventId,
+      preset_id: "24h",
+      label: "24 hours before",
+      scheduled_for: new Date(+new Date(eventDate) - 86400000).toISOString(),
+      subject: "Tomorrow: React Summit 2026",
+      body: "You're registered — here's everything you need for tomorrow: join link, schedule, and how to get your ticket ready.",
+      status: "scheduled",
+      enabled: true,
+      channel: "email",
+      sent_at: null,
+    },
+  ]);
 }
 
 if (process.env.NODE_ENV !== "production") {
@@ -151,6 +174,7 @@ if (process.env.NODE_ENV !== "production") {
   globalForMock.assets = assets;
   globalForMock.attendees = attendees;
   globalForMock.announcements = announcements;
+  globalForMock.reminders = reminders;
 }
 
 function uid(prefix: string) {
@@ -213,6 +237,7 @@ export function createCampaign(input: {
     created_at: now,
     updated_at: now,
     event_id: null,
+    event_ids: [],
   };
   campaigns.set(id, campaign);
 
@@ -224,6 +249,7 @@ export function createCampaign(input: {
       status: "strategy_ready",
       strategy_json: input.strategy,
       event_id: eventId,
+      event_ids: eventId ? [eventId] : [],
     });
   } else if (!input.deferMockStrategy) {
     scheduleDemoStrategy(id, mode, input.title);
@@ -249,6 +275,7 @@ export function scheduleDemoStrategy(
       status: "strategy_ready",
       strategy_json: strategy,
       event_id: eventId,
+      event_ids: eventId ? [eventId] : [],
     });
   }, 800);
 }
@@ -276,6 +303,73 @@ function buildEventFromStrategy(
   return eventId;
 }
 
+export function getCampaignEventIds(campaign: Campaign): string[] {
+  if (campaign.event_ids?.length) return campaign.event_ids;
+  if (campaign.event_id) return [campaign.event_id];
+  return [];
+}
+
+export function listEventsForCampaign(campaignId: string): Event[] {
+  const campaign = campaigns.get(campaignId);
+  if (!campaign) return [];
+  return getCampaignEventIds(campaign)
+    .map((eventId) => events.get(eventId))
+    .filter((e): e is Event => Boolean(e));
+}
+
+function uniqueEventSlug(base: string): string {
+  let slug = slugify(base) || "event";
+  if (!Array.from(events.values()).some((e) => e.slug === slug)) return slug;
+  let n = 2;
+  while (Array.from(events.values()).some((e) => e.slug === `${slug}-${n}`)) {
+    n += 1;
+  }
+  return `${slug}-${n}`;
+}
+
+export function createCampaignEvent(
+  campaignId: string,
+  input: { title?: string } = {},
+): Event | undefined {
+  const campaign = campaigns.get(campaignId);
+  if (!campaign?.strategy_json) return undefined;
+
+  const strategy = campaign.strategy_json;
+  const existing = listEventsForCampaign(campaignId);
+  const n = existing.length + 1;
+  const label = input.title?.trim() || campaign.title;
+  const headline =
+    input.title?.trim() ||
+    (n > 1
+      ? `${strategy.event_draft.headline} (${n})`
+      : strategy.event_draft.headline);
+
+  const eventId = uid("evt");
+  const event: Event = {
+    id: eventId,
+    campaign_id: campaignId,
+    slug: uniqueEventSlug(label),
+    published: false,
+    landing: {
+      headline,
+      subhead: strategy.event_draft.subhead,
+      body_md: strategy.event_draft.body_md,
+    },
+    form_fields: [...strategy.event_draft.form_fields],
+    attendee_count: 0,
+  };
+  events.set(eventId, event);
+
+  const eventIds = [...getCampaignEventIds(campaign), eventId];
+  setCampaign(campaignId, {
+    ...campaign,
+    event_ids: eventIds,
+    event_id: eventId,
+  });
+
+  return event;
+}
+
 export function createEventForCampaign(campaignId: string): Event | undefined {
   const campaign = campaigns.get(campaignId);
   if (!campaign || !campaign.strategy_json) return undefined;
@@ -286,7 +380,7 @@ export function createEventForCampaign(campaignId: string): Event | undefined {
     campaign.title,
     campaign.strategy_json,
   );
-  setCampaign(campaignId, { ...campaign, event_id: eventId });
+  setCampaign(campaignId, { ...campaign, event_id: eventId, event_ids: [eventId] });
   return events.get(eventId);
 }
 
@@ -314,12 +408,17 @@ export function updateCampaignStrategy(
     eventId = buildEventFromStrategy(id, campaign.title, strategy);
   }
 
+  const priorIds = getCampaignEventIds(campaign);
+  const event_ids =
+    eventId && !priorIds.includes(eventId) ? [...priorIds, eventId] : priorIds;
+
   const updated = setCampaign(id, {
     ...campaign,
     status:
       campaign.status === "published" ? "published" : "strategy_ready",
     strategy_json: strategy,
-    event_id: eventId,
+    event_id: eventId ?? campaign.event_id,
+    event_ids,
   });
   return { ok: true, campaign: updated };
 }
@@ -526,7 +625,7 @@ export function publishEvent(id: string): Event | undefined {
     (c) => c.event_id === id,
   );
   if (campaign) {
-    campaigns.set(campaign.id, { ...campaign, status: "published" });
+    setCampaign(campaign.id, { ...campaign, status: "published" });
   }
   return updated;
 }
@@ -614,6 +713,183 @@ export function createAnnouncement(
   return record;
 }
 
+const REMINDER_OFFSETS: Record<
+  Exclude<ReminderPresetId, "custom">,
+  { label: string; ms: number }
+> = {
+  "7d": { label: "1 week before", ms: 7 * 86400000 },
+  "24h": { label: "24 hours before", ms: 86400000 },
+  "1h": { label: "1 hour before", ms: 3600000 },
+};
+
+const DEFAULT_REMINDER_COPY: Record<
+  Exclude<ReminderPresetId, "custom">,
+  { subject: string; body: string }
+> = {
+  "7d": {
+    subject: "One week until {event}",
+    body: "Your event is coming up in 7 days. Save the date, review the agenda, and make sure your ticket is handy.",
+  },
+  "24h": {
+    subject: "Tomorrow: {event}",
+    body: "You're registered — here's everything you need for tomorrow: join link, schedule, and how to get your ticket ready.",
+  },
+  "1h": {
+    subject: "Starting in 1 hour — {event}",
+    body: "We go live in about an hour. Grab your ticket link below and join us on time.",
+  },
+};
+
+function fillReminderTemplate(text: string, eventTitle: string): string {
+  return text.replace(/\{event\}/g, eventTitle);
+}
+
+function computePresetSchedule(
+  eventDate: string,
+  presetId: Exclude<ReminderPresetId, "custom">,
+): string {
+  return new Date(+new Date(eventDate) - REMINDER_OFFSETS[presetId].ms).toISOString();
+}
+
+export function listReminders(eventId: string): EventReminder[] {
+  return (reminders.get(eventId) ?? [])
+    .slice()
+    .sort((a, b) => +new Date(a.scheduled_for) - +new Date(b.scheduled_for));
+}
+
+export function upsertPresetReminder(
+  eventId: string,
+  presetId: Exclude<ReminderPresetId, "custom">,
+  input: { enabled: boolean; subject?: string; body?: string },
+): EventReminder | undefined {
+  const event = events.get(eventId);
+  if (!event?.event_date) return undefined;
+
+  const list = reminders.get(eventId) ?? [];
+  const existing = list.find((r) => r.preset_id === presetId);
+  const title = event.landing.headline;
+  const defaults = DEFAULT_REMINDER_COPY[presetId];
+
+  if (!input.enabled) {
+    if (existing) {
+      const updated = { ...existing, enabled: false, status: "cancelled" as const };
+      reminders.set(
+        eventId,
+        list.map((r) => (r.id === existing.id ? updated : r)),
+      );
+      return updated;
+    }
+    return undefined;
+  }
+
+  const record: EventReminder = existing
+    ? {
+        ...existing,
+        enabled: true,
+        status: "scheduled",
+        scheduled_for: computePresetSchedule(event.event_date, presetId),
+        subject: input.subject?.trim() || existing.subject,
+        body: input.body?.trim() || existing.body,
+      }
+    : {
+        id: uid("rem"),
+        event_id: eventId,
+        preset_id: presetId,
+        label: REMINDER_OFFSETS[presetId].label,
+        scheduled_for: computePresetSchedule(event.event_date, presetId),
+        subject: fillReminderTemplate(
+          input.subject?.trim() || defaults.subject,
+          title,
+        ),
+        body: fillReminderTemplate(input.body?.trim() || defaults.body, title),
+        status: "scheduled",
+        enabled: true,
+        channel: "email",
+        sent_at: null,
+      };
+
+  if (existing) {
+    reminders.set(
+      eventId,
+      list.map((r) => (r.id === existing.id ? record : r)),
+    );
+  } else {
+    list.push(record);
+    reminders.set(eventId, list);
+  }
+  return record;
+}
+
+export function createCustomReminder(
+  eventId: string,
+  input: {
+    scheduled_for: string;
+    subject: string;
+    body: string;
+    label?: string;
+  },
+): EventReminder | undefined {
+  const event = events.get(eventId);
+  if (!event) return undefined;
+
+  const scheduled = new Date(input.scheduled_for);
+  if (Number.isNaN(scheduled.getTime())) return undefined;
+
+  const record: EventReminder = {
+    id: uid("rem"),
+    event_id: eventId,
+    preset_id: "custom",
+    label: input.label?.trim() || "Custom reminder",
+    scheduled_for: scheduled.toISOString(),
+    subject: input.subject.trim(),
+    body: input.body.trim(),
+    status: "scheduled",
+    enabled: true,
+    channel: "email",
+    sent_at: null,
+  };
+  const list = reminders.get(eventId) ?? [];
+  list.push(record);
+  reminders.set(eventId, list);
+  return record;
+}
+
+export function updateReminder(
+  eventId: string,
+  reminderId: string,
+  patch: Partial<Pick<EventReminder, "subject" | "body" | "enabled" | "scheduled_for">>,
+): EventReminder | undefined {
+  const list = reminders.get(eventId) ?? [];
+  const idx = list.findIndex((r) => r.id === reminderId);
+  if (idx < 0) return undefined;
+
+  const current = list[idx];
+  const updated: EventReminder = {
+    ...current,
+    ...patch,
+    status:
+      patch.enabled === false
+        ? "cancelled"
+        : patch.enabled === true
+          ? "scheduled"
+          : current.status,
+  };
+  list[idx] = updated;
+  reminders.set(eventId, list);
+  return updated;
+}
+
+export function deleteReminder(
+  eventId: string,
+  reminderId: string,
+): boolean {
+  const list = reminders.get(eventId) ?? [];
+  const next = list.filter((r) => r.id !== reminderId);
+  if (next.length === list.length) return false;
+  reminders.set(eventId, next);
+  return true;
+}
+
 export function getEventAttendees(eventId: string): Attendee[] {
   return attendees.get(eventId) ?? [];
 }
@@ -638,17 +914,18 @@ export function getCalendarEntries(from: string, to: string): CalendarEntry[] {
         });
       }
     }
-    if (campaign.event_id) {
-      const event = events.get(campaign.event_id);
-      if (event) {
-        const at = +new Date(campaign.created_at);
+    const eventIds = getCampaignEventIds(campaign);
+    for (const eventId of eventIds) {
+      const event = events.get(eventId);
+      if (event && event.event_date) {
+        const at = +new Date(event.event_date);
         if (at >= fromMs && at <= toMs) {
           entries.push({
             id: `event-${event.id}`,
             campaign_id: campaign.id,
             campaign_title: campaign.title,
             type: "event",
-            scheduled_at: campaign.created_at,
+            scheduled_at: event.event_date,
             title: event.landing.headline,
           });
         }
