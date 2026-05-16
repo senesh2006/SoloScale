@@ -1,0 +1,20 @@
+{
+  "summary": "2-week React workshop launch campaign.",
+  "timeline": [
+    {
+      "id": "c1",
+      "type": "tweet",
+      "scheduled_at": "2026-05-12T10:00:00.000Z",
+      "copy": "We're going live Friday with a hands-on React workshop."
+    }
+  ],
+  "event_draft": {
+    "headline": "Virtual React Workshop",
+    "subhead": "Friday, 3pm ET",
+    "body_md": "Join us for a practical React workshop.",
+    "form_fields": [
+      { "id": "f1", "type": "text", "label": "Full name", "required": true },
+      { "id": "f2", "type": "email", "label": "Email", "required": true }
+    ]
+  }
+}
