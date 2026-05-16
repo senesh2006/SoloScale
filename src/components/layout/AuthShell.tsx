@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Sparkles, Check } from "lucide-react";
+import { AuthVideoBackground } from "@/components/layout/AuthVideoBackground";
 
 type Props = {
   title: string;
@@ -54,13 +55,7 @@ export function AuthShell({ title, subtitle, children, footer }: Props) {
 
       {/* Marketing side */}
       <div className="relative hidden overflow-hidden bg-zinc-950 text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-50"
-        >
-          <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-violet-600/50 blur-3xl" />
-          <div className="absolute -right-10 bottom-20 h-80 w-80 rounded-full bg-indigo-500/40 blur-3xl" />
-        </div>
+        <AuthVideoBackground variant="dark" />
 
         <div className="relative">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur">
