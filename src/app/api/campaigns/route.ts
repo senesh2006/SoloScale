@@ -13,6 +13,17 @@ import { snapshotToObject } from "@/lib/firestore/serialize";
 import { createCampaignSchema } from "@/lib/validation/api-inputs";
 import { createEventFromStrategy } from "@/lib/firestore/helpers";
 import { parseLimit } from "@/lib/firestore/queries";
+import {
+  AI_TIMEOUT,
+  aiFetchJson,
+  isAiServiceEnabled,
+} from "@/lib/ai-service-client";
+import { applyDev1ToCampaign } from "@/lib/apply-ai-to-campaign";
+import { normalizeEventDate } from "@/lib/adapters/dev1StrategyToDashboard";
+import type {
+  Dev1CampaignResponse,
+  Dev1CampaignStrategy,
+} from "@/types/dev1-ai";
 import type { CampaignStrategy } from "@/types/campaign";
 
 /**
@@ -57,9 +68,16 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/campaigns
- * Creates a campaign owned by the authenticated user. If `GEMINI_API_KEY` is
- * set the route also generates the strategy synchronously and (when
- * `mode = "all"`) creates the linked event in one go.
+ *
+ * Creates a campaign owned by the authenticated user. Strategy + asset
+ * generation order:
+ *
+ *   1. If `AI_SERVICE_URL` is set → call `soloscale-ai-service` for the full
+ *      Dev1 strategy (and hero flyer/voiceover when `mode === "all"`), then
+ *      persist via `applyDev1ToCampaign` (writes to Firestore).
+ *   2. Otherwise, fall back to direct Gemini for a strategy.
+ *   3. Otherwise, the campaign is saved as `draft` and the client is expected
+ *      to trigger generation via `/api/campaigns/[id]/strategy/refine`.
  */
 export async function POST(request: Request) {
   if (!isFirebaseConfigured()) return firebaseNotConfigured();
@@ -76,6 +94,8 @@ export async function POST(request: Request) {
     );
   }
   const input = parsed.data;
+  const voiceName =
+    typeof json.voice_name === "string" ? json.voice_name.trim() : undefined;
 
   const db = getAdminDb();
   const campaignRef = db.collection(COLLECTIONS.campaigns).doc();
@@ -88,19 +108,86 @@ export async function POST(request: Request) {
     status: "draft",
     strategy_json: null,
     event_id: null,
+    event_ids: [],
     event_date: input.event_date
       ? Timestamp.fromDate(new Date(input.event_date))
       : null,
     audience: input.audience ?? null,
     flyer_input: input.flyer_input ?? null,
     voice_input: input.voice_input ?? null,
+    ai_hero: null,
     created_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
   });
 
-  // Best-effort: synchronous strategy generation when an API key is configured.
-  // Failure here doesn't fail the request — the campaign is still created.
-  if (process.env.GEMINI_API_KEY && input.mode !== "flyer" && input.mode !== "voice") {
+  let appliedStrategy: CampaignStrategy | null = null;
+  const eventDateNormalized = normalizeEventDate(
+    input.event_date ?? json.eventDate,
+  );
+
+  // --- Path 1: external AI service (preferred when configured) ---
+  if (
+    isAiServiceEnabled() &&
+    (input.mode === "all" || input.mode === "strategy")
+  ) {
+    try {
+      if (input.mode === "all") {
+        const data = await aiFetchJson<Dev1CampaignResponse>("/api/campaign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            goal: input.goal_prompt,
+            eventDate: eventDateNormalized,
+            audience: input.audience ?? undefined,
+            voiceName,
+          }),
+          timeoutMs: AI_TIMEOUT.campaign,
+        });
+        appliedStrategy = await applyDev1ToCampaign(db, campaignRef.id, {
+          userId,
+          title: input.title,
+          goal_prompt: input.goal_prompt,
+          mode: "all",
+          dev1Strategy: data.strategy,
+          assets: data.assets,
+        });
+      } else {
+        const data = await aiFetchJson<{ strategy: Dev1CampaignStrategy }>(
+          "/api/strategy",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              goal: input.goal_prompt,
+              eventDate: eventDateNormalized,
+              audience: input.audience ?? undefined,
+            }),
+            timeoutMs: AI_TIMEOUT.default,
+          },
+        );
+        appliedStrategy = await applyDev1ToCampaign(db, campaignRef.id, {
+          userId,
+          title: input.title,
+          goal_prompt: input.goal_prompt,
+          mode: "strategy",
+          dev1Strategy: data.strategy,
+        });
+      }
+    } catch (err) {
+      console.error(
+        "AI service failed during campaign create — falling back:",
+        err,
+      );
+    }
+  }
+
+  // --- Path 2: direct Gemini fallback ---
+  if (
+    !appliedStrategy &&
+    process.env.GEMINI_API_KEY &&
+    input.mode !== "flyer" &&
+    input.mode !== "voice"
+  ) {
     try {
       const strategy = (await generateCampaignStrategy({
         title: input.title,
@@ -112,6 +199,7 @@ export async function POST(request: Request) {
         status: "strategy_ready",
         updated_at: FieldValue.serverTimestamp(),
       });
+      appliedStrategy = strategy;
 
       if (input.mode === "all") {
         await createEventFromStrategy(db, {
@@ -121,7 +209,7 @@ export async function POST(request: Request) {
         });
       }
     } catch (err) {
-      console.error("Gemini failed during create — campaign saved as draft:", err);
+      console.error("Gemini failed — campaign saved as draft:", err);
     }
   }
 

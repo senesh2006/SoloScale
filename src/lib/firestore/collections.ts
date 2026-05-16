@@ -3,6 +3,7 @@ export const COLLECTIONS = {
   users: "users",
   campaigns: "campaigns",
   events: "events",
+  event_reminders: "event_reminders",
   assets: "assets",
   attendees: "attendees",
   announcements: "announcements",
