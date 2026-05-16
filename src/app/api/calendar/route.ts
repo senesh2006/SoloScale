@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
-import { getCalendarEntries, useMocks } from "@/lib/mock-store";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 import {
@@ -13,11 +12,12 @@ import type { CalendarEntry } from "@/types/campaign";
 
 /**
  * GET /api/calendar?from=ISO&to=ISO
- * Returns scheduled content items + event dates within the window.
- * Mock mode reads from in-memory store; real mode pulls every campaign owned
- * by the user and flattens its `strategy_json.timeline` + `event_date`.
+ * Returns scheduled content items + event dates within the window for the
+ * authenticated user (their campaigns + linked events).
  */
 export async function GET(request: Request) {
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
   const { searchParams } = new URL(request.url);
   const from =
     searchParams.get("from") ??
@@ -25,12 +25,6 @@ export async function GET(request: Request) {
   const to =
     searchParams.get("to") ??
     new Date(Date.now() + 30 * 86400000).toISOString();
-
-  if (useMocks()) {
-    return NextResponse.json({ entries: getCalendarEntries(from, to) });
-  }
-
-  if (!isFirebaseConfigured()) return firebaseNotConfigured();
 
   const userId = await resolveUserId(request);
   if (!userId) return unauthorized();
@@ -79,7 +73,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // Resolve event dates with a single batched read.
   if (eventIds.length > 0) {
     const refs = eventIds.map(({ eventId }) =>
       db.collection(COLLECTIONS.events).doc(eventId),
@@ -99,7 +92,8 @@ export async function GET(request: Request) {
         campaign_title: eventIds[idx].title,
         type: "event",
         scheduled_at: isoDate,
-        title: (ev.landing as { headline?: string } | undefined)?.headline ??
+        title:
+          (ev.landing as { headline?: string } | undefined)?.headline ??
           eventIds[idx].title,
       });
     });

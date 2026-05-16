@@ -82,13 +82,24 @@ export default function CampaignDetailPage() {
     }
   }, [id]);
 
+  // Poll only while there's work in flight (strategy still drafting or any
+  // asset pending/processing). Otherwise nothing changes server-side, so we
+  // hammer Firestore for no reason.
+  const hasInflightWork =
+    (campaign?.status === "draft" && !campaign?.strategy_json) ||
+    assets.some((a) => a.status === "pending" || a.status === "processing");
+
   useEffect(() => {
     load().catch(console.error);
+  }, [load]);
+
+  useEffect(() => {
+    if (!hasInflightWork) return;
     const timer = setInterval(() => {
       load().catch(() => undefined);
     }, 3000);
     return () => clearInterval(timer);
-  }, [load]);
+  }, [load, hasInflightWork]);
 
   async function generateBoth() {
     setLoadingAssets(true);

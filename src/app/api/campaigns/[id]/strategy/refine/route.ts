@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
-import { getCampaign, useMocks } from "@/lib/mock-store";
+import { z } from "zod";
 import { refineCampaignStrategy } from "@/services/ai/gemini";
 import {
   campaignStrategySchema,
   formatZodError,
 } from "@/lib/validation/strategy";
-import { z } from "zod";
+import { getAdminDb } from "@/lib/firebase/admin";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
+import {
+  firebaseNotConfigured,
+  resolveUserId,
+  unauthorized,
+} from "@/lib/firebase/auth-helpers";
+import { getOwnedCampaign } from "@/lib/firestore/queries";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,20 +21,24 @@ const refineBodySchema = z.object({
   current: campaignStrategySchema.optional(),
 });
 
+/**
+ * POST /api/campaigns/[id]/strategy/refine
+ * Asks Gemini to refine the campaign's existing strategy with the user's
+ * instruction. Returns the proposed strategy WITHOUT writing — the client
+ * decides whether to accept and PATCH it back. Auth: campaign owner.
+ */
 export async function POST(request: Request, { params }: Params) {
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
   const { id } = await params;
+  const userId = await resolveUserId(request);
+  if (!userId) return unauthorized();
 
-  if (!useMocks()) {
-    return NextResponse.json(
-      { error: "Connect Firebase — mock mode disabled" },
-      { status: 501 },
-    );
+  const owned = await getOwnedCampaign(getAdminDb(), id, userId);
+  if (!owned.ok) {
+    return NextResponse.json({ error: owned.error }, { status: owned.status });
   }
-
-  const campaign = getCampaign(id);
-  if (!campaign) {
-    return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
-  }
+  const campaign = owned.data;
   if (!campaign.strategy_json) {
     return NextResponse.json(
       { error: "No strategy to refine yet" },
@@ -45,14 +56,16 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const proposed = await refineCampaignStrategy({
-    current: parsed.data.current ?? campaign.strategy_json,
+    current:
+      parsed.data.current ??
+      (campaign.strategy_json as import("@/types/campaign").CampaignStrategy),
     instruction: parsed.data.instruction,
-    title: campaign.title,
-    goal_prompt: campaign.goal_prompt,
+    title: campaign.title as string,
+    goal_prompt: campaign.goal_prompt as string,
   });
 
-  // Defensive: Gemini can return invalid JSON despite the schema. Catch it before
-  // it reaches the client and corrupts their draft.
+  // Defensive: Gemini can return invalid JSON despite the schema. Catch it
+  // before it reaches the client and corrupts the user's draft.
   const validated = campaignStrategySchema.safeParse(proposed);
   if (!validated.success) {
     return NextResponse.json(

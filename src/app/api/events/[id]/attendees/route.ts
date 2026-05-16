@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getEventAttendees, useMocks } from "@/lib/mock-store";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 import {
@@ -23,14 +22,9 @@ type Params = { params: Promise<{ id: string }> };
  *   ?paid=true|false       (filter by payment status)
  */
 export async function GET(request: Request, { params }: Params) {
-  const { id } = await params;
-
-  if (useMocks()) {
-    return NextResponse.json({ attendees: getEventAttendees(id) });
-  }
-
   if (!isFirebaseConfigured()) return firebaseNotConfigured();
 
+  const { id } = await params;
   const userId = await resolveUserId(request);
   if (!userId) return unauthorized();
 
@@ -52,13 +46,21 @@ export async function GET(request: Request, { params }: Params) {
   if (paidFilter === "true") q = q.where("paid", "==", true);
   else if (paidFilter === "false") q = q.where("paid", "==", false);
 
-  const snap = await q.orderBy("created_at", "desc").limit(limit).get();
-  const attendees = snap.docs.map((d) =>
-    snapshotToObject<Record<string, unknown>>({
-      id: d.id,
-      data: () => d.data(),
-    }),
-  );
+  // No `orderBy` to avoid composite index requirement; sort in memory.
+  const snap = await q.limit(limit).get();
+  const attendees = snap.docs
+    .map((d) =>
+      snapshotToObject<Record<string, unknown>>({
+        id: d.id,
+        data: () => d.data(),
+      }),
+    )
+    .filter((a): a is Record<string, unknown> & { id: string } => Boolean(a))
+    .sort((a, b) => {
+      const at = String(a.created_at ?? "");
+      const bt = String(b.created_at ?? "");
+      return bt.localeCompare(at);
+    });
 
   if (!withResponses || attendees.length === 0) {
     return NextResponse.json({ attendees, count: attendees.length });
@@ -75,9 +77,10 @@ export async function GET(request: Request, { params }: Params) {
       snapshotToObject({ id: doc.id, data: () => doc.data() }),
     );
   }
-  const merged = attendees.map((a) =>
-    a ? { ...a, form_response: responsesByAttendee.get(a.id) ?? null } : a,
-  );
+  const merged = attendees.map((a) => ({
+    ...a,
+    form_response: responsesByAttendee.get(a.id) ?? null,
+  }));
 
   return NextResponse.json({ attendees: merged, count: merged.length });
 }

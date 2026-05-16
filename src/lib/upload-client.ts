@@ -1,7 +1,6 @@
 /**
  * Browser-side helper for uploading an image. Calls POST /api/upload which
- * routes to Firebase Storage (in real mode) or an in-memory mock store
- * served via /api/uploads/:id. Returns the resulting URL.
+ * forwards the file to Firebase Storage and returns its public URL.
  */
 export async function uploadImage(
   file: File,

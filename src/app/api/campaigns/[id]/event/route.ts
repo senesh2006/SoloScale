@@ -1,42 +1,64 @@
 import { NextResponse } from "next/server";
-import { createEventForCampaign, getCampaign, useMocks } from "@/lib/mock-store";
+import { getAdminDb } from "@/lib/firebase/admin";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
+import {
+  firebaseNotConfigured,
+  resolveUserId,
+  unauthorized,
+} from "@/lib/firebase/auth-helpers";
+import { COLLECTIONS } from "@/lib/firestore/collections";
+import { snapshotToObject } from "@/lib/firestore/serialize";
+import { getOwnedCampaign } from "@/lib/firestore/queries";
+import { createEventFromStrategy } from "@/lib/firestore/helpers";
+import type { CampaignStrategy } from "@/types/campaign";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(_request: Request, { params }: Params) {
+/**
+ * POST /api/campaigns/[id]/event
+ * Creates an event document from the campaign's strategy. Idempotent —
+ * returns the existing event if `campaign.event_id` is already set.
+ * Auth: campaign owner.
+ */
+export async function POST(request: Request, { params }: Params) {
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
   const { id } = await params;
+  const userId = await resolveUserId(request);
+  if (!userId) return unauthorized();
 
-  if (!useMocks()) {
-    return NextResponse.json(
-      { error: "Connect Firebase — mock mode disabled" },
-      { status: 501 },
-    );
+  const db = getAdminDb();
+  const owned = await getOwnedCampaign(db, id, userId);
+  if (!owned.ok) {
+    return NextResponse.json({ error: owned.error }, { status: owned.status });
   }
 
-  const campaign = getCampaign(id);
-  if (!campaign) {
-    return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
-  }
-  if (!campaign.strategy_json) {
+  const campaign = owned.data;
+  const strategy = campaign.strategy_json as CampaignStrategy | null | undefined;
+
+  if (!strategy) {
     return NextResponse.json(
       { error: "Strategy not ready yet — generate strategy first" },
       { status: 409 },
     );
   }
+
   if (campaign.event_id) {
-    return NextResponse.json(
-      { error: "Campaign already has an event page" },
-      { status: 409 },
-    );
+    const existing = await db
+      .collection(COLLECTIONS.events)
+      .doc(campaign.event_id as string)
+      .get();
+    if (existing.exists) {
+      return NextResponse.json({ event: snapshotToObject(existing) });
+    }
   }
 
-  const event = createEventForCampaign(id);
-  if (!event) {
-    return NextResponse.json(
-      { error: "Failed to create event" },
-      { status: 500 },
-    );
-  }
+  const eventId = await createEventFromStrategy(db, {
+    campaignId: id,
+    title: (campaign.title as string) ?? "Event",
+    strategy,
+  });
 
-  return NextResponse.json({ event }, { status: 201 });
+  const created = await db.collection(COLLECTIONS.events).doc(eventId).get();
+  return NextResponse.json({ event: snapshotToObject(created) }, { status: 201 });
 }

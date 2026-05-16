@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEvent, updateEvent, useMocks } from "@/lib/mock-store";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type {
   EventMedia,
   EventPrice,
@@ -33,32 +33,22 @@ type PatchBody = {
 
 /**
  * GET /api/events/[id]
- * Returns a single event. Mock mode reads in-memory; otherwise enforces ownership.
- * Pass `?public=1` to skip the ownership check (used for the public landing page).
+ * Returns a single event. Authenticated requests must own the event;
+ * `?public=1` returns a published event without authentication (used by the
+ * landing page after slug → id resolution).
  */
 export async function GET(request: Request, { params }: Params) {
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
   const { id } = await params;
   const url = new URL(request.url);
   const publicView = url.searchParams.get("public") === "1";
-
-  if (useMocks()) {
-    const event = getEvent(id);
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
-    }
-    return NextResponse.json({ event });
-  }
-
-  if (!isFirebaseConfigured()) return firebaseNotConfigured();
 
   const db = getAdminDb();
 
   if (publicView) {
     const snap = await db.collection(COLLECTIONS.events).doc(id).get();
-    if (!snap.exists) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
-    }
-    if (snap.data()?.published === false) {
+    if (!snap.exists || snap.data()?.published === false) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
     return NextResponse.json({ event: snapshotToObject(snap) });
@@ -71,17 +61,26 @@ export async function GET(request: Request, { params }: Params) {
   if (!owned.ok) {
     return NextResponse.json({ error: owned.error }, { status: owned.status });
   }
-  return NextResponse.json({ event: { id, ...owned.data } });
+  return NextResponse.json({
+    event: { id, ...snapshotToObjectData(owned.data) },
+  });
 }
 
+/**
+ * PATCH /api/events/[id]
+ * Updates editable fields on an event. Auth: campaign owner.
+ */
 export async function PATCH(request: Request, { params }: Params) {
-  const { id } = await params;
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
 
-  if (!useMocks()) {
-    return NextResponse.json(
-      { error: "Connect Firebase — mock mode disabled" },
-      { status: 501 },
-    );
+  const { id } = await params;
+  const userId = await resolveUserId(request);
+  if (!userId) return unauthorized();
+
+  const db = getAdminDb();
+  const owned = await getOwnedEvent(db, id, userId);
+  if (!owned.ok) {
+    return NextResponse.json({ error: owned.error }, { status: owned.status });
   }
 
   const body = (await request.json().catch(() => ({}))) as PatchBody;
@@ -97,20 +96,40 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
-  const event = updateEvent(id, {
-    landing: body.landing,
-    form_fields: body.form_fields,
-    price: body.price,
-    media: body.media,
-    sponsors: body.sponsors,
-    sponsors_display: body.sponsors_display,
-    event_date: body.event_date,
-    location: body.location,
-  });
-
-  if (!event) {
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  const update: Record<string, unknown> = {
+    updated_at: FieldValue.serverTimestamp(),
+  };
+  if (body.landing !== undefined) update.landing = body.landing;
+  if (body.form_fields !== undefined) update.form_fields = body.form_fields;
+  if (body.price !== undefined) update.price = body.price;
+  if (body.media !== undefined) update.media = body.media;
+  if (body.sponsors !== undefined) update.sponsors = body.sponsors;
+  if (body.sponsors_display !== undefined) {
+    update.sponsors_display = body.sponsors_display;
   }
+  if (body.event_date !== undefined) {
+    update.event_date = body.event_date
+      ? Timestamp.fromDate(new Date(body.event_date))
+      : null;
+  }
+  if (body.location !== undefined) update.location = body.location;
 
-  return NextResponse.json({ event });
+  await db.collection(COLLECTIONS.events).doc(id).update(update);
+  const fresh = await db.collection(COLLECTIONS.events).doc(id).get();
+  return NextResponse.json({ event: snapshotToObject(fresh) });
+}
+
+/**
+ * Helper — strip Firestore-only fields from the in-memory data for serialization.
+ */
+function snapshotToObjectData(data: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v && typeof (v as { toDate?: () => Date }).toDate === "function") {
+      out[k] = (v as { toDate: () => Date }).toDate().toISOString();
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
 }

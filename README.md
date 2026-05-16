@@ -18,15 +18,14 @@ soloscale/
 │   ├── app/
 │   │   ├── (auth)/login, signup
 │   │   ├── (dashboard)/dashboard/...
-│   │   ├── api/                 # REST API (mock store by default)
+│   │   ├── api/                 # REST API (Firestore-backed)
 │   │   └── e/[slug]/            # Public event landing pages
 │   ├── components/
 │   ├── lib/
-│   │   ├── firebase/            # Client SDK + Admin (Dev 2)
-│   │   ├── mock-store.ts
+│   │   ├── firebase/            # Client SDK + Admin
+│   │   ├── firestore/           # Collection helpers, serializers, queries
 │   │   └── api.ts
-│   ├── mocks/
-│   ├── services/ai/             # Dev 1 stubs
+│   ├── services/ai/             # Gemini integration
 │   └── types/
 ├── firebase/                    # Firestore + Storage security rules
 └── docs/
@@ -45,7 +44,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-**Mock mode** is on by default (`NEXT_PUBLIC_USE_MOCKS=true`). APIs use an in-memory store — no Firebase or AI keys required for the hackathon demo.
+All routes read from Firestore. Set `DEV_USER_ID` in `.env.local` so unauthenticated requests are treated as a single dev user during local development; remove it in production once Firebase Auth is wired into the client.
 
 ## Firebase (Dev 2)
 

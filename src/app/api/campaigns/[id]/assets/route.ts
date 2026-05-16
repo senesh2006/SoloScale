@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
-import {
-  addAsset,
-  getCampaign,
-  getCampaignAssets,
-  startAssetGeneration,
-  useMocks,
-} from "@/lib/mock-store";
-import type { AssetKind, FlyerInput, VoiceoverInput } from "@/types/campaign";
+import type { AssetKind } from "@/types/campaign";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 import {
@@ -23,24 +16,12 @@ type Params = { params: Promise<{ id: string }> };
 
 /**
  * GET /api/campaigns/[id]/assets
- * Returns the assets for a campaign. Mock mode reads in-memory; Firestore
- * mode reads from `assets` collection (where campaign_id == id).
+ * Lists assets for a campaign. Auth: campaign owner.
  */
 export async function GET(request: Request, { params }: Params) {
-  const { id } = await params;
-
-  if (useMocks()) {
-    if (!getCampaign(id)) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 },
-      );
-    }
-    return NextResponse.json({ assets: getCampaignAssets(id) });
-  }
-
   if (!isFirebaseConfigured()) return firebaseNotConfigured();
 
+  const { id } = await params;
   const userId = await resolveUserId(request);
   if (!userId) return unauthorized();
 
@@ -75,49 +56,20 @@ export async function GET(request: Request, { params }: Params) {
 
 /**
  * POST /api/campaigns/[id]/assets
- * Creates a placeholder asset for the campaign. Mock mode triggers fake
- * generation; Firestore mode writes a `pending` asset doc that a background
- * job (or your AI service) will later flip to `ready`.
+ * Creates pending asset placeholder(s). Pass `kind` for one specific asset,
+ * otherwise creates both `flyer` + `voiceover`. A separate background job
+ * (or your AI service) flips `status` to `ready` when generation completes.
  */
 export async function POST(request: Request, { params }: Params) {
-  const { id } = await params;
-
-  const body = (await request
-    .json()
-    .catch(() => ({}))) as {
-    kind?: AssetKind;
-    flyer?: FlyerInput;
-    voice?: VoiceoverInput;
-  };
-
-  if (useMocks()) {
-    const campaign = getCampaign(id);
-    if (!campaign) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 },
-      );
-    }
-
-    if (campaign.status === "draft") {
-      return NextResponse.json(
-        { error: "Strategy not ready yet" },
-        { status: 409 },
-      );
-    }
-
-    const assets =
-      body?.kind === "flyer" || body?.kind === "voiceover"
-        ? addAsset(id, body.kind, { flyer: body.flyer, voice: body.voice })
-        : startAssetGeneration(id);
-
-    return NextResponse.json({ assets }, { status: 202 });
-  }
-
   if (!isFirebaseConfigured()) return firebaseNotConfigured();
 
+  const { id } = await params;
   const userId = await resolveUserId(request);
   if (!userId) return unauthorized();
+
+  const body = (await request.json().catch(() => ({}))) as {
+    kind?: AssetKind;
+  };
 
   const db = getAdminDb();
   const owned = await getOwnedCampaign(db, id, userId);

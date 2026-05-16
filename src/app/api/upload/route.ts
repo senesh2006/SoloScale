@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { useMocks } from "@/lib/mock-store";
-import { putUpload } from "@/lib/upload-store";
 import { getAdminStorage } from "@/lib/firebase/admin";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
+import { firebaseNotConfigured } from "@/lib/firebase/auth-helpers";
 
 const ALLOWED = new Set([
   "image/png",
@@ -11,7 +11,7 @@ const ALLOWED = new Set([
   "image/svg+xml",
 ]);
 
-const REAL_MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = 8 * 1024 * 1024;
 
 function extFor(contentType: string): string {
   switch (contentType) {
@@ -30,7 +30,13 @@ function extFor(contentType: string): string {
   }
 }
 
+/**
+ * POST /api/upload  (multipart/form-data: `file`, optional `folder`)
+ * Uploads an image to Firebase Storage and returns its public URL.
+ */
 export async function POST(request: Request) {
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
 
@@ -49,31 +55,15 @@ export async function POST(request: Request) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-
-  // Mock mode → in-memory store served via /api/uploads/[id]
-  if (useMocks()) {
-    const result = putUpload({
-      bytes,
-      contentType: file.type,
-      filename: file.name || `upload.${extFor(file.type)}`,
-    });
-    if ("error" in result) {
-      return NextResponse.json({ error: result.error }, { status: 413 });
-    }
-    return NextResponse.json({ url: result.url, id: result.id });
-  }
-
-  // Real mode → Firebase Storage
-  if (bytes.byteLength > REAL_MAX_BYTES) {
+  if (bytes.byteLength > MAX_BYTES) {
     return NextResponse.json(
-      { error: `File exceeds ${REAL_MAX_BYTES / 1024 / 1024}MB upload limit` },
+      { error: `File exceeds ${MAX_BYTES / 1024 / 1024}MB upload limit` },
       { status: 413 },
     );
   }
 
   try {
-    const storage = getAdminStorage();
-    const bucket = storage.bucket();
+    const bucket = getAdminStorage().bucket();
     const folder = (form?.get("folder") as string | null)?.trim() || "uploads";
     const safeFolder = folder.replace(/[^a-z0-9/_-]+/gi, "_");
     const objectName = `${safeFolder}/${Date.now()}_${Math.random()
