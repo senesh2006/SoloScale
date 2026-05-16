@@ -253,7 +253,7 @@ function AllInOneForm({
             mode: "all",
             title,
             goal_prompt: goal,
-            event_date: eventDate || null,
+            event_date: toIsoOrNull(eventDate),
             audience: audience || null,
           }),
         },
@@ -359,7 +359,7 @@ function StrategyOnlyForm({
             mode: "strategy",
             title: title.trim() || derivedTitle(goal),
             goal_prompt: goal,
-            event_date: eventDate || null,
+            event_date: toIsoOrNull(eventDate),
             audience: audience || null,
           }),
         },
@@ -543,6 +543,18 @@ function seedDateToDatetimeLocal(iso?: string): string {
   const day = iso.trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return "";
   return `${day}T09:00`;
+}
+
+/**
+ * `<input type="datetime-local">` returns `YYYY-MM-DDTHH:mm` (no seconds,
+ * no timezone) which fails Zod's `z.string().datetime()`. Convert the
+ * browser-local value to a full ISO string before posting.
+ */
+function toIsoOrNull(value: string): string | null {
+  if (!value?.trim()) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
 }
 
 /* ============================================================

@@ -88,8 +88,14 @@ export async function POST(request: Request) {
 
   const parsed = createCampaignSchema.safeParse(json);
   if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    const path = first?.path?.join(".") ?? "(root)";
+    const message = first?.message ?? "Invalid payload";
     return NextResponse.json(
-      { error: "Invalid payload", issues: parsed.error.issues },
+      {
+        error: `Invalid payload — ${path}: ${message}`,
+        issues: parsed.error.issues,
+      },
       { status: 400 },
     );
   }

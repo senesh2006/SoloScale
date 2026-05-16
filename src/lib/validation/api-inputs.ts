@@ -48,6 +48,19 @@ export const createUserSchema = z.object({
   plan_id: z.enum(["free", "pro", "team"]).optional().default("free"),
 });
 
+/**
+ * Accepts either a full ISO datetime (`2026-05-20T09:00:00.000Z`) or the
+ * browser-local shape produced by `<input type="datetime-local">`
+ * (`2026-05-20T09:00`). The handler converts to `Date` before persisting.
+ */
+const flexibleDateString = z
+  .string()
+  .min(1)
+  .refine(
+    (v) => !Number.isNaN(new Date(v).getTime()),
+    "Must be a valid date/time",
+  );
+
 /* -------------------- CAMPAIGNS -------------------- */
 export const createCampaignSchema = z.object({
   user_id: z.string().min(1).optional(),
@@ -55,7 +68,7 @@ export const createCampaignSchema = z.object({
   goal_prompt: z.string().min(1, "goal_prompt is required"),
   mode: z.enum(["all", "strategy", "flyer", "voice"]).optional().default("all"),
   audience: z.string().nullable().optional(),
-  event_date: z.string().datetime().nullable().optional(),
+  event_date: flexibleDateString.nullable().optional(),
   flyer_input: z
     .object({
       visual_prompt: z.string(),
