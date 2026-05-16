@@ -83,6 +83,7 @@ export async function createEventFromStrategy(
   });
   batch.update(db.collection(COLLECTIONS.campaigns).doc(args.campaignId), {
     event_id: eventRef.id,
+    event_ids: FieldValue.arrayUnion(eventRef.id),
     updated_at: FieldValue.serverTimestamp(),
   });
   await batch.commit();

@@ -15,7 +15,16 @@ type Params = { params: Promise<{ id: string }> };
 
 /**
  * POST /api/events/[id]/publish
- * Marks an event as published and bumps its parent campaign to `published`.
+ *
+ * Toggles the `published` flag on an event. The default (no body / empty
+ * body) publishes; pass `{ published: false }` to take the event back to
+ * draft so it can be edited again.
+ *
+ * Side-effects:
+ *  - Publishing also bumps the parent campaign to `status: "published"`.
+ *  - Unpublishing leaves the campaign status untouched (other events under
+ *    the same campaign may still be live).
+ *
  * Auth: campaign owner.
  */
 export async function POST(request: Request, { params }: Params) {
@@ -24,6 +33,11 @@ export async function POST(request: Request, { params }: Params) {
   const { id } = await params;
   const userId = await resolveUserId(request);
   if (!userId) return unauthorized();
+
+  const body = (await request.json().catch(() => ({}))) as {
+    published?: unknown;
+  };
+  const desired = body.published === false ? false : true;
 
   const db = getAdminDb();
   const owned = await getOwnedEvent(db, id, userId);
@@ -36,10 +50,10 @@ export async function POST(request: Request, { params }: Params) {
 
   const batch = db.batch();
   batch.update(eventRef, {
-    published: true,
+    published: desired,
     updated_at: FieldValue.serverTimestamp(),
   });
-  if (campaignId) {
+  if (desired === true && campaignId) {
     batch.update(db.collection(COLLECTIONS.campaigns).doc(campaignId), {
       status: "published",
       updated_at: FieldValue.serverTimestamp(),

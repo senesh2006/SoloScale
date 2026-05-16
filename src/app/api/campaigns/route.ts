@@ -188,6 +188,21 @@ export async function POST(request: Request) {
   }
 
   // --- Path 2: direct Gemini fallback ---
+  // Only runs if path 1 didn't even start writing — once the AI service path
+  // has applied a strategy or created an event, we never re-enter this block.
+  // Reread `event_id` from Firestore to avoid double-creating an event when
+  // path 1 produced one but threw during a later step.
+  let alreadyHasEvent = false;
+  if (!appliedStrategy) {
+    const cur = (await campaignRef.get()).data() ?? {};
+    alreadyHasEvent = Boolean(cur.event_id);
+    if (cur.strategy_json) {
+      // Path 1 succeeded enough to persist the strategy — treat this as
+      // applied so the fallback doesn't overwrite it.
+      appliedStrategy = cur.strategy_json as CampaignStrategy;
+    }
+  }
+
   if (
     !appliedStrategy &&
     process.env.GEMINI_API_KEY &&
@@ -207,7 +222,7 @@ export async function POST(request: Request) {
       });
       appliedStrategy = strategy;
 
-      if (input.mode === "all") {
+      if (input.mode === "all" && !alreadyHasEvent) {
         await createEventFromStrategy(db, {
           campaignId: campaignRef.id,
           title: input.title,

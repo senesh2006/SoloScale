@@ -75,7 +75,12 @@ export async function applyDev1ToCampaign(
       (p) => p.suggestedVoiceoverScript,
     )?.suggestedVoiceoverScript;
 
-    const writes: Promise<unknown>[] = [];
+    // Run asset writes independently and swallow individual failures —
+    // we already persisted the strategy + event, and a worker / retry can
+    // re-render the assets later. Throwing here would cause the caller's
+    // catch block to think the whole apply failed and (possibly) recreate
+    // the event, leading to duplicates.
+    const writes: Promise<boolean>[] = [];
     if (input.assets.flyer?.url) {
       writes.push(
         writeReadyAsset(db, {
@@ -86,7 +91,15 @@ export async function applyDev1ToCampaign(
           thumbnail_url: input.assets.flyer.url,
           prompt: flyerPrompt,
           label: "Hero flyer",
-        }),
+        })
+          .then(() => true)
+          .catch((err) => {
+            console.warn(
+              `apply-ai: failed to persist hero flyer for ${campaignId}:`,
+              err,
+            );
+            return false;
+          }),
       );
     }
     if (input.assets.voiceover?.url) {
@@ -98,16 +111,30 @@ export async function applyDev1ToCampaign(
           url: input.assets.voiceover.url,
           prompt: voicePrompt,
           label: "Hero voice-over",
-        }),
+        })
+          .then(() => true)
+          .catch((err) => {
+            console.warn(
+              `apply-ai: failed to persist hero voiceover for ${campaignId}:`,
+              err,
+            );
+            return false;
+          }),
       );
     }
-    await Promise.all(writes);
-
-    if (writes.length > 0) {
-      await campaignRef.update({
-        status: "assets_ready",
-        updated_at: FieldValue.serverTimestamp(),
-      });
+    const results = await Promise.all(writes);
+    if (results.some(Boolean)) {
+      await campaignRef
+        .update({
+          status: "assets_ready",
+          updated_at: FieldValue.serverTimestamp(),
+        })
+        .catch((err) =>
+          console.warn(
+            `apply-ai: could not bump status for ${campaignId}:`,
+            err,
+          ),
+        );
     }
   }
 

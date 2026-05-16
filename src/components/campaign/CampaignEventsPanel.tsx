@@ -151,17 +151,26 @@ export function CampaignEventsPanel({
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <span
-                      className="rounded-lg border border-zinc-200 bg-white p-2 text-zinc-400 group-hover:border-violet-200 group-hover:text-violet-600"
-                      title="Edit landing page"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        window.location.href = `/dashboard/campaigns/${campaignId}/events/${evt.id}/edit`;
-                      }}
-                    >
-                      <PenSquare className="h-3.5 w-3.5" />
-                    </span>
+                    {!evt.published ? (
+                      <span
+                        className="rounded-lg border border-zinc-200 bg-white p-2 text-zinc-400 group-hover:border-violet-200 group-hover:text-violet-600"
+                        title="Edit landing page"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.location.href = `/dashboard/campaigns/${campaignId}/events/${evt.id}/edit`;
+                        }}
+                      >
+                        <PenSquare className="h-3.5 w-3.5" />
+                      </span>
+                    ) : (
+                      <span
+                        className="rounded-lg border border-zinc-100 bg-zinc-50 p-2 text-zinc-300"
+                        title="Unpublish the event to edit the landing page"
+                      >
+                        <PenSquare className="h-3.5 w-3.5" />
+                      </span>
+                    )}
                     <ArrowRight className="h-4 w-4 text-zinc-300 group-hover:text-violet-600" />
                   </div>
                 </Link>

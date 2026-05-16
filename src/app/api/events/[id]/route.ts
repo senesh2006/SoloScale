@@ -68,7 +68,13 @@ export async function GET(request: Request, { params }: Params) {
 
 /**
  * PATCH /api/events/[id]
+ *
  * Updates editable fields on an event. Auth: campaign owner.
+ *
+ * Refuses to update a published event with HTTP 409 — landing pages,
+ * registrations, attendees, and form responses all snapshot the live form,
+ * so silently mutating them after publish would corrupt downstream data.
+ * Unpublish first via `POST /api/events/[id]/publish { published: false }`.
  */
 export async function PATCH(request: Request, { params }: Params) {
   if (!isFirebaseConfigured()) return firebaseNotConfigured();
@@ -81,6 +87,17 @@ export async function PATCH(request: Request, { params }: Params) {
   const owned = await getOwnedEvent(db, id, userId);
   if (!owned.ok) {
     return NextResponse.json({ error: owned.error }, { status: owned.status });
+  }
+
+  if (owned.data.published === true) {
+    return NextResponse.json(
+      {
+        error:
+          "This event is published. Unpublish it before editing — registrations and form responses are tied to the live version.",
+        code: "EVENT_PUBLISHED",
+      },
+      { status: 409 },
+    );
   }
 
   const body = (await request.json().catch(() => ({}))) as PatchBody;

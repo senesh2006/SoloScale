@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   Save,
   Eye,
+  Lock,
   Type,
   AlignLeft,
   ListPlus,
@@ -114,7 +115,7 @@ export default function EventEditPage() {
   }, [campaignId, eventIdParam, searchParams]);
 
   async function save() {
-    if (!event) return;
+    if (!event || event.published) return;
     setSaving(true);
     try {
       await apiFetch(`/api/events/${event.id}`, {
@@ -275,8 +276,21 @@ export default function EventEditPage() {
     );
   }
 
+  const readOnly = event.published === true;
+
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-20">
+      {readOnly ? (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <p>
+            This event is live — landing content and registration fields are
+            frozen so registrations stay consistent. Unpublish from the event
+            page if you need to edit.
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -296,7 +310,7 @@ export default function EventEditPage() {
         <button
           type="button"
           onClick={save}
-          disabled={saving}
+          disabled={saving || readOnly}
           className="flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 hover:bg-violet-500 disabled:opacity-50 transition-all"
         >
           <Save className="h-4 w-4" />
@@ -304,7 +318,12 @@ export default function EventEditPage() {
         </button>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div
+        className={cn(
+          "grid gap-8 lg:grid-cols-2",
+          readOnly && "pointer-events-none select-none opacity-[0.72]",
+        )}
+      >
         <div className="space-y-6">
           <div className="flex items-center justify-between border-b border-zinc-200 pb-2">
             <div className="flex flex-wrap items-center gap-4">

@@ -58,8 +58,9 @@ export async function GET(request: Request, { params }: Params) {
 
 /**
  * POST /api/campaigns/[id]/events
- * Creates an additional event under this campaign. The first event also
- * gets stored on `campaigns.event_id` for backwards-compatible reads.
+ * Creates an event under this campaign (or reuses the primary one when the
+ * body omits `title` and `campaign.event_id` already points at a live doc —
+ * same behavior as `POST /api/campaigns/[id]/event`).
  * Auth: owner.
  */
 export async function POST(request: Request, { params }: Params) {
@@ -85,6 +86,44 @@ export async function POST(request: Request, { params }: Params) {
       { error: "Generate your strategy before adding events" },
       { status: 409 },
     );
+  }
+
+  /**
+   * Reuse the campaign's primary event when the caller did not ask for a new
+   * landing-page title. Matches `POST /api/campaigns/[id]/event` and prevents
+   * duplicates after AI "generate everything" already set `event_id`.
+   */
+  if (!overrideTitle && campaign.event_id) {
+    const existingSnap = await db
+      .collection(COLLECTIONS.events)
+      .doc(campaign.event_id as string)
+      .get();
+    if (existingSnap.exists) {
+      const data = existingSnap.data();
+      if (data?.campaign_id === id) {
+        const all = await db
+          .collection(COLLECTIONS.events)
+          .where("campaign_id", "==", id)
+          .get();
+        const events = all.docs
+          .map((d) =>
+            snapshotToObject<Record<string, unknown>>({
+              id: d.id,
+              data: () => d.data(),
+            }),
+          )
+          .filter((e): e is Record<string, unknown> & { id: string } => Boolean(e))
+          .sort((a, b) => {
+            const at = String(a.created_at ?? "");
+            const bt = String(b.created_at ?? "");
+            return at.localeCompare(bt);
+          });
+        return NextResponse.json({
+          event: snapshotToObject(existingSnap),
+          events,
+        });
+      }
+    }
   }
 
   const eventId = await createEventFromStrategy(db, {
