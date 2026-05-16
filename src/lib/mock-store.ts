@@ -69,6 +69,13 @@ if (campaigns.size === 0) {
       url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
     }
   ]);
+
+  attendees.set(eventId, [
+    { id: "att_1", event_id: eventId, name: "Senesh Fernando", email: "senesh@example.com", created_at: new Date(Date.now() - 3600000).toISOString() },
+    { id: "att_2", event_id: eventId, name: "Gemini AI", email: "gemini@google.com", created_at: new Date(Date.now() - 7200000).toISOString() },
+    { id: "att_3", event_id: eventId, name: "Cursor Bot", email: "bot@cursor.sh", created_at: new Date(Date.now() - 10800000).toISOString() },
+  ]);
+  events.get(eventId)!.attendee_count = 3;
 }
 
 if (process.env.NODE_ENV !== "production") {
@@ -254,6 +261,10 @@ export function registerAttendee(
   attendees.set(eventId, list);
   events.set(eventId, { ...event, attendee_count: list.length });
   return record;
+}
+
+export function getEventAttendees(eventId: string): Attendee[] {
+  return attendees.get(eventId) ?? [];
 }
 
 export function getCalendarEntries(from: string, to: string): CalendarEntry[] {

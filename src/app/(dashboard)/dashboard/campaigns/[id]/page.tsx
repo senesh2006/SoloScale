@@ -5,9 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AssetGenerationPanel } from "@/components/campaign/AssetGenerationPanel";
 import { StrategyTimeline } from "@/components/campaign/StrategyTimeline";
+import { ParticipantsList } from "@/components/campaign/ParticipantsList";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { apiFetch } from "@/lib/api";
-import type { Asset, Campaign, Event } from "@/types/campaign";
+import type { Asset, Campaign, Event, Attendee } from "@/types/campaign";
 import { ChevronLeft, Calendar, Image as ImageIcon, Globe, Users, PenSquare, Rocket, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [event, setEvent] = useState<Event | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,11 @@ export default function CampaignDetailPage() {
           `/api/events/${c.event_id}`,
         );
         setEvent(e);
+
+        const { attendees: att } = await apiFetch<{ attendees: Attendee[] }>(
+          `/api/events/${c.event_id}/attendees`,
+        );
+        setAttendees(att);
       }
       const { assets: a } = await apiFetch<{ assets: Asset[] }>(
         `/api/campaigns/${id}/assets`,
@@ -168,6 +175,14 @@ export default function CampaignDetailPage() {
               onGenerate={generateAssets}
               loading={loadingAssets}
             />
+          </section>
+
+          <section>
+            <div className="flex items-center gap-2 mb-6">
+              <Users className="h-5 w-5 text-violet-600" />
+              <h2 className="text-xl font-bold">Campaign Participants</h2>
+            </div>
+            <ParticipantsList attendees={attendees} />
           </section>
         </div>
 
