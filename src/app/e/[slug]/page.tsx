@@ -62,8 +62,8 @@ export default function PublicEventPage() {
 
   async function finalizeRegistration() {
     if (!event) return;
-    const fieldMetadata = Object.fromEntries(
-      event.form_fields.map((f) => [f.label, customFields[f.id] ?? ""]),
+    const fieldValues = Object.fromEntries(
+      event.form_fields.map((f) => [f.id, customFields[f.id] ?? ""]),
     );
     const res = await apiFetch<{ attendee: Attendee }>(
       `/api/events/slug/${slug}/register`,
@@ -72,15 +72,13 @@ export default function PublicEventPage() {
         body: JSON.stringify({
           name,
           email,
-          metadata: {
-            ...fieldMetadata,
-            ...(isPaid
-              ? {
-                  paid: "true",
-                  amount_cents: String(event.price?.amount_cents),
-                }
-              : {}),
-          },
+          field_values: fieldValues,
+          metadata: isPaid
+            ? {
+                paid: "true",
+                amount_cents: String(event.price?.amount_cents),
+              }
+            : {},
         }),
       },
     );
