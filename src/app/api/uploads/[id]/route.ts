@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return new NextResponse(file.bytes, {
+  return new NextResponse(new Uint8Array(file.bytes), {
     status: 200,
     headers: {
       "Content-Type": file.contentType,

@@ -34,6 +34,8 @@ export type Campaign = {
   goal_prompt: string;
   status: CampaignStatus;
   strategy_json: CampaignStrategy | null;
+  /** Prompts for regenerating assets via soloscale-ai-service */
+  ai_hero?: AiHeroMeta;
   created_at: string;
   updated_at: string;
   event_id: string | null;
@@ -66,6 +68,12 @@ export type VoiceoverInput = {
   script: string;
   voice_id?: string;
   label?: string;
+};
+
+export type AiHeroMeta = {
+  flyer?: FlyerInput;
+  voiceScript?: string;
+  voiceName?: string;
 };
 
 export type FormFieldType =

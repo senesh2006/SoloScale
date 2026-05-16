@@ -1,4 +1,8 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import {
+  GoogleGenerativeAI,
+  SchemaType,
+  type Schema,
+} from "@google/generative-ai";
 import type { CampaignStrategy } from "@/types/campaign";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -51,7 +55,7 @@ const schema = {
     },
   },
   required: ["summary", "timeline", "event_draft"],
-};
+} as unknown as Schema;
 
 export async function refineCampaignStrategy(input: {
   current: CampaignStrategy;

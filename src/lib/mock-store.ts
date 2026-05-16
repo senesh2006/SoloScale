@@ -1,5 +1,6 @@
 import demoStrategy from "@/mocks/demo-campaign.json";
 import type {
+  AiHeroMeta,
   Announcement,
   Asset,
   AssetKind,
@@ -196,6 +197,8 @@ export function createCampaign(input: {
   mode?: CreateCampaignMode;
   user_id?: string;
   strategy?: CampaignStrategy;
+  /** When true, skip the delayed demo strategy (caller will apply AI or mock manually). */
+  deferMockStrategy?: boolean;
 }): Campaign {
   const id = uid("camp");
   const mode: CreateCampaignMode = input.mode ?? "all";
@@ -213,21 +216,7 @@ export function createCampaign(input: {
   };
   campaigns.set(id, campaign);
 
-  if (!input.strategy) {
-    // Default mock behavior if no strategy provided
-    setTimeout(() => {
-      const current = campaigns.get(id);
-      if (!current) return;
-      const strategy = demoStrategy as CampaignStrategy;
-      const eventId = mode === "all" ? buildEventFromStrategy(id, input.title, strategy) : null;
-      setCampaign(id, {
-        ...current,
-        status: "strategy_ready",
-        strategy_json: strategy,
-        event_id: eventId,
-      });
-    }, 800);
-  } else {
+  if (input.strategy) {
     const eventId =
       mode === "all" ? buildEventFromStrategy(id, input.title, input.strategy) : null;
     setCampaign(id, {
@@ -236,9 +225,32 @@ export function createCampaign(input: {
       strategy_json: input.strategy,
       event_id: eventId,
     });
+  } else if (!input.deferMockStrategy) {
+    scheduleDemoStrategy(id, mode, input.title);
   }
 
   return campaign;
+}
+
+/** Applies the bundled demo strategy after a short delay (mock fallback). */
+export function scheduleDemoStrategy(
+  campaignId: string,
+  mode: CreateCampaignMode,
+  title: string,
+): void {
+  setTimeout(() => {
+    const current = campaigns.get(campaignId);
+    if (!current || current.strategy_json) return;
+    const strategy = demoStrategy as CampaignStrategy;
+    const eventId =
+      mode === "all" ? buildEventFromStrategy(campaignId, title, strategy) : null;
+    setCampaign(campaignId, {
+      ...current,
+      status: "strategy_ready",
+      strategy_json: strategy,
+      event_id: eventId,
+    });
+  }, 800);
 }
 
 function buildEventFromStrategy(
@@ -393,6 +405,44 @@ export function addAsset(
     maybePromoteCampaign(campaignId);
   }, 1500);
 
+  return next;
+}
+
+export function setAiHeroMeta(campaignId: string, meta: AiHeroMeta): void {
+  const c = campaigns.get(campaignId);
+  if (!c) return;
+  setCampaign(campaignId, { ...c, ai_hero: meta });
+}
+
+export function addReadyAsset(
+  campaignId: string,
+  kind: AssetKind,
+  input: {
+    url: string;
+    label?: string;
+    prompt?: string;
+    thumbnail_url?: string;
+    voice_id?: string;
+  },
+): Asset[] {
+  const existing = assets.get(campaignId) ?? [];
+  const asset: Asset = {
+    id: uid("asset"),
+    campaign_id: campaignId,
+    kind,
+    status: "ready",
+    url: input.url,
+    thumbnail_url:
+      input.thumbnail_url ??
+      (kind === "flyer" ? input.url : undefined),
+    label: input.label?.trim() || defaultLabel(campaignId, kind),
+    prompt: input.prompt?.trim(),
+    voice_id: input.voice_id,
+    created_at: new Date().toISOString(),
+  };
+  const next = [...existing, asset];
+  assets.set(campaignId, next);
+  maybePromoteCampaign(campaignId);
   return next;
 }
 
