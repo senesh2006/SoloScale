@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsCampaign(campaignId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/campaigns/$(campaignId)).data.user_id == request.auth.uid;
+    }
+
+    match /campaigns/{campaignId} {
+      allow read, write: if signedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+    }
+
+    match /events/{eventId} {
+      allow read: if resource.data.published == true;
+      allow write: if signedIn() && ownsCampaign(resource.data.campaign_id);
+      allow create: if signedIn();
+    }
+
+    match /assets/{assetId} {
+      allow read, write: if signedIn() && ownsCampaign(resource.data.campaign_id);
+    }
+
+    match /attendees/{attendeeId} {
+      allow create: if true;
+      allow read: if signedIn();
+    }
+  }
+}

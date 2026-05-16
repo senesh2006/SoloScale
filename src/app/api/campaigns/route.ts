@@ -8,7 +8,7 @@ import {
 export async function GET() {
   if (!useMocks()) {
     return NextResponse.json(
-      { error: "Connect Supabase — mock mode disabled" },
+      { error: "Connect Firebase — mock mode disabled" },
       { status: 501 },
     );
   }
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
   if (!useMocks()) {
     return NextResponse.json(
-      { error: "Connect Supabase — mock mode disabled" },
+      { error: "Connect Firebase — mock mode disabled" },
       { status: 501 },
     );
   }

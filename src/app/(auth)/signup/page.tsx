@@ -6,7 +6,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
         <h1 className="text-xl font-bold">Sign up</h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Create an account with Supabase Auth (Dev 2).
+          Create an account with Firebase Auth (Dev 2).
         </p>
         <form className="mt-6 space-y-4">
           <input

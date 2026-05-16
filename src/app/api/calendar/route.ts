@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   if (!useMocks()) {
     return NextResponse.json(
-      { error: "Connect Supabase — mock mode disabled" },
+      { error: "Connect Firebase — mock mode disabled" },
       { status: 501 },
     );
   }

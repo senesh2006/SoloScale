@@ -9,7 +9,7 @@ export async function POST(request: Request, { params }: Params) {
 
   if (!useMocks()) {
     return NextResponse.json(
-      { error: "Connect Supabase — mock mode disabled" },
+      { error: "Connect Firebase — mock mode disabled" },
       { status: 501 },
     );
   }

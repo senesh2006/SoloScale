@@ -7,7 +7,7 @@ AI-powered content and event SaaS — strategy, assets, and registration in one 
 | Area | Owner | Path |
 |------|-------|------|
 | AI (Gemini, image, TTS) | Dev 1 | `src/services/ai/` |
-| Backend, Supabase, public events | Dev 2 | `src/app/api/`, `supabase/`, `src/app/e/` |
+| Backend, Firebase, public events | Dev 2 | `src/app/api/`, `firebase/`, `src/lib/firebase/`, `src/app/e/` |
 | Dashboard & UX | Dev 3 | `src/app/(dashboard)/`, `src/components/` |
 
 ## Project structure
@@ -21,12 +21,17 @@ soloscale/
 │   │   ├── api/                 # REST API (mock store by default)
 │   │   └── e/[slug]/            # Public event landing pages
 │   ├── components/
-│   ├── lib/                     # Supabase clients, mock store, api helper
+│   ├── lib/
+│   │   ├── firebase/            # Client SDK + Admin (Dev 2)
+│   │   ├── mock-store.ts
+│   │   └── api.ts
 │   ├── mocks/
 │   ├── services/ai/             # Dev 1 stubs
 │   └── types/
-├── supabase/migrations/
-└── docs/api-samples/
+├── firebase/                    # Firestore + Storage security rules
+└── docs/
+    ├── api-samples/
+    └── firestore-schema.md
 ```
 
 ## Setup (after clone)
@@ -40,7 +45,17 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-**Mock mode** is on by default (`NEXT_PUBLIC_USE_MOCKS=true`). APIs use an in-memory store — no Supabase or AI keys required for the hackathon demo.
+**Mock mode** is on by default (`NEXT_PUBLIC_USE_MOCKS=true`). APIs use an in-memory store — no Firebase or AI keys required for the hackathon demo.
+
+## Firebase (Dev 2)
+
+1. Create a project in [Firebase Console](https://console.firebase.google.com).
+2. Enable **Authentication** (Email/Password) and **Firestore** + **Storage**.
+3. Copy web app config into `.env.local` (`NEXT_PUBLIC_FIREBASE_*`).
+4. Generate a service account key for server routes → set `FIREBASE_SERVICE_ACCOUNT_PATH`.
+5. Deploy rules: `firebase deploy --only firestore:rules,storage`
+
+See `docs/firestore-schema.md` for collection shapes.
 
 ## Demo flow
 
@@ -51,4 +66,4 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Environment
 
-See `.env.example` for Supabase and AI API keys.
+See `.env.example` for Firebase and AI API keys.
