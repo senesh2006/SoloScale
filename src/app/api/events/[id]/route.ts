@@ -7,6 +7,16 @@ import type {
   Sponsor,
   SponsorDisplay,
 } from "@/types/campaign";
+import { getAdminDb } from "@/lib/firebase/admin";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
+import {
+  firebaseNotConfigured,
+  resolveUserId,
+  unauthorized,
+} from "@/lib/firebase/auth-helpers";
+import { COLLECTIONS } from "@/lib/firestore/collections";
+import { snapshotToObject } from "@/lib/firestore/serialize";
+import { getOwnedEvent } from "@/lib/firestore/queries";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,22 +31,47 @@ type PatchBody = {
   location?: string | null;
 };
 
-export async function GET(_request: Request, { params }: Params) {
+/**
+ * GET /api/events/[id]
+ * Returns a single event. Mock mode reads in-memory; otherwise enforces ownership.
+ * Pass `?public=1` to skip the ownership check (used for the public landing page).
+ */
+export async function GET(request: Request, { params }: Params) {
   const { id } = await params;
+  const url = new URL(request.url);
+  const publicView = url.searchParams.get("public") === "1";
 
-  if (!useMocks()) {
-    return NextResponse.json(
-      { error: "Connect Firebase — mock mode disabled" },
-      { status: 501 },
-    );
+  if (useMocks()) {
+    const event = getEvent(id);
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+    return NextResponse.json({ event });
   }
 
-  const event = getEvent(id);
-  if (!event) {
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  if (!isFirebaseConfigured()) return firebaseNotConfigured();
+
+  const db = getAdminDb();
+
+  if (publicView) {
+    const snap = await db.collection(COLLECTIONS.events).doc(id).get();
+    if (!snap.exists) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+    if (snap.data()?.published === false) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+    return NextResponse.json({ event: snapshotToObject(snap) });
   }
 
-  return NextResponse.json({ event });
+  const userId = await resolveUserId(request);
+  if (!userId) return unauthorized();
+
+  const owned = await getOwnedEvent(db, id, userId);
+  if (!owned.ok) {
+    return NextResponse.json({ error: owned.error }, { status: owned.status });
+  }
+  return NextResponse.json({ event: { id, ...owned.data } });
 }
 
 export async function PATCH(request: Request, { params }: Params) {

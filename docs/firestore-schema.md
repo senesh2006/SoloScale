@@ -1,7 +1,7 @@
 # Firestore schema
 
 Source of truth for all collections, indexes, and security rules.
-Collections mirror the TypeScript types in `src/types/campaign.ts` and `src/types/billing.ts`.
+Collections mirror the TypeScript types in `src/types/` (`user`, `campaign`, `event`, `asset`, `attendee`, `announcement`, `billing`, `shared`). Run `npm run firestore:init` to create empty collections in your Firebase project.
 
 ## Table of contents
 
@@ -13,6 +13,7 @@ Collections mirror the TypeScript types in `src/types/campaign.ts` and `src/type
   - [`assets`](#assetsassetid)
   - [`attendees`](#attendeesattendeeid)
   - [`announcements`](#announcementsannouncementid)
+  - [`form_responses`](#form_responsesresponseid)
   - [`subscriptions`](#subscriptionssubscriptionid)
   - [`payment_methods`](#payment_methodspaymentmethodid)
   - [`invoices`](#invoicesinvoiceid)
@@ -347,5 +348,58 @@ Broadcast emails sent from the campaign dashboard to an event's attendees. The d
   "created_by": "u_abc123"
 }
 ```
+
+---
+
+### `form_responses/{responseId}`
+
+One submission of an event's registration form by a single attendee. Decoupled from `attendees` so a form can be re-sent later, edited, or analyzed independently. The `attendees.metadata` map is a flat denormalized cache; `form_responses` is the audit trail with field-level type info.
+
+| Field | Type | Notes |
+|---|---|---|
+| `event_id` | string | Parent event |
+| `campaign_id` | string | Denormalized for cross-campaign queries |
+| `attendee_id` | string | The attendee who submitted |
+| `user_id` | string \| null | Auth UID if logged in, `null` for anonymous registrations |
+| `email` | string | Lowercased — denormalized from attendee for filtering |
+| `name` | string | Denormalized from attendee |
+| `answers` | array | One entry per answered field — see below |
+| `form_version` | number | Increment on `events.form_fields` schema change so old responses stay readable |
+| `submitted_at` | timestamp | First submit |
+| `updated_at` | timestamp | Last edit |
+
+#### `answers[]` element
+
+Each answer snapshots `label` and `type` alongside the value, so the response stays interpretable even after the event's `form_fields` are reordered or relabeled.
+
+| Field | Type | Notes |
+|---|---|---|
+| `field_id` | string | Matches `events.form_fields[].id` |
+| `label` | string | Snapshot at submit time |
+| `type` | string | Same enum as `form_fields[].type` |
+| `value` | string \| number \| boolean \| string[] \| null | Shape follows `type` (string for text/select, number for number, boolean for checkbox, ISO string for date, etc.) |
+
+```json
+{
+  "event_id": "evt_xyz789",
+  "campaign_id": "camp_demo_react",
+  "attendee_id": "att_abc",
+  "user_id": null,
+  "email": "maya@example.com",
+  "name": "Maya Chen",
+  "answers": [
+    { "field_id": "f3", "label": "Company", "type": "text", "value": "Founder.cafe" },
+    { "field_id": "f4", "label": "T-Shirt Size", "type": "select", "value": "M" },
+    { "field_id": "f5", "label": "Newsletter", "type": "checkbox", "value": true }
+  ],
+  "form_version": 1,
+  "submitted_at": "2026-05-16T16:42:00Z",
+  "updated_at": "2026-05-16T16:42:00Z"
+}
+```
+
+> **Idempotency**: re-submitting with the same `(event_id, attendee_id)` should update the existing doc and bump `updated_at`, not create a new one.
+>
+> **Sync with attendees**: in the same write, refresh `attendees.metadata` from `answers` so the flat lookup stays current.
 
 ---

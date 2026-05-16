@@ -1,8 +1,13 @@
+import type { Timestamp } from "firebase/firestore";
+import type { FormField, Landing } from "@/types/shared";
+
 export type CampaignStatus =
   | "draft"
   | "strategy_ready"
   | "assets_ready"
   | "published";
+
+export type CampaignMode = "all" | "strategy" | "flyer" | "voice";
 
 export type ContentType = "tweet" | "linkedin" | "reel" | "email";
 
@@ -27,34 +32,20 @@ export type CampaignStrategy = {
   event_draft: EventDraft;
 };
 
-export type Campaign = {
-  id: string;
-  user_id: string;
-  title: string;
-  goal_prompt: string;
-  status: CampaignStatus;
-  strategy_json: CampaignStrategy | null;
-  created_at: string;
-  updated_at: string;
-  event_id: string | null;
+/** Stored on `campaigns.flyer_input` when `mode = "flyer"`. */
+export type CampaignFlyerInput = {
+  visual_prompt: string;
+  headline: string;
+  subtext: string;
 };
 
-export type AssetKind = "flyer" | "voiceover";
-export type AssetStatus = "pending" | "processing" | "ready" | "failed";
-
-export type Asset = {
-  id: string;
-  campaign_id: string;
-  kind: AssetKind;
-  status: AssetStatus;
-  url: string | null;
-  thumbnail_url?: string;
-  label?: string;
-  prompt?: string;
-  voice_id?: string;
-  created_at?: string;
+/** Stored on `campaigns.voice_input` when `mode = "voice"`. */
+export type CampaignVoiceInput = {
+  script: string;
+  voice_id: string;
 };
 
+/** API input for generating a flyer asset. */
 export type FlyerInput = {
   prompt: string;
   label?: string;
@@ -62,88 +53,45 @@ export type FlyerInput = {
   subtext?: string;
 };
 
+/** `campaigns/{campaignId}` — Firestore document fields. */
+export type CampaignDocument = {
+  user_id: string;
+  title: string;
+  goal_prompt: string;
+  mode: CampaignMode;
+  status: CampaignStatus;
+  strategy_json: CampaignStrategy | null;
+  event_id: string | null;
+  event_date: Timestamp | null;
+  audience: string | null;
+  flyer_input: CampaignFlyerInput | null;
+  voice_input: CampaignVoiceInput | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
+/** API / mock serialized campaign. */
+export type Campaign = {
+  id: string;
+  user_id: string;
+  title: string;
+  goal_prompt: string;
+  mode?: CampaignMode;
+  status: CampaignStatus;
+  strategy_json: CampaignStrategy | null;
+  created_at: string;
+  updated_at: string;
+  event_id: string | null;
+  event_date?: string | null;
+  audience?: string | null;
+  flyer_input?: CampaignFlyerInput | null;
+  voice_input?: CampaignVoiceInput | null;
+};
+
 export type VoiceoverInput = {
   script: string;
   voice_id?: string;
   label?: string;
-};
-
-export type FormFieldType =
-  | "text"
-  | "textarea"
-  | "email"
-  | "phone"
-  | "url"
-  | "number"
-  | "date"
-  | "select"
-  | "checkbox";
-
-export type FormField = {
-  id: string;
-  type: FormFieldType;
-  label: string;
-  required: boolean;
-  placeholder?: string;
-  description?: string;
-  options?: string[];
-};
-
-export type Announcement = {
-  id: string;
-  event_id: string;
-  subject: string;
-  body: string;
-  sent_at: string;
-  recipient_count: number;
-  channel?: "email" | "in_app";
-};
-
-export type Currency = "USD" | "EUR" | "GBP" | "INR" | "LKR";
-
-export type EventPrice = {
-  amount_cents: number;
-  currency: Currency;
-};
-
-export type SponsorDisplay = "grid" | "carousel";
-
-export type Sponsor = {
-  id: string;
-  name: string;
-  logo_url?: string;
-  website?: string;
-};
-
-export type EventMedia = {
-  hero_url?: string;
-  gallery_urls?: string[];
-};
-
-export type Event = {
-  id: string;
-  campaign_id: string;
-  slug: string;
-  published: boolean;
-  landing: { headline: string; subhead: string; body_md: string };
-  form_fields: FormField[];
-  attendee_count: number;
-  price?: EventPrice | null;
-  media?: EventMedia;
-  sponsors?: Sponsor[];
-  sponsors_display?: SponsorDisplay;
-  event_date?: string | null;
-  location?: string | null;
-};
-
-export type Attendee = {
-  id: string;
-  event_id: string;
-  email: string;
-  name: string;
-  created_at: string;
-  ticket_code?: string;
-  metadata?: Record<string, string>;
 };
 
 export type CalendarEntry = {
@@ -154,3 +102,76 @@ export type CalendarEntry = {
   scheduled_at: string;
   title: string;
 };
+
+export type { Landing as TextStructure };
+
+// Re-exports — import from `@/types/campaign` or the specific module.
+export type {
+  Currency,
+  EventPrice,
+  FormField,
+  FormFieldType,
+  EventMedia,
+  Landing,
+  Sponsor,
+  SponsorDisplay,
+} from "@/types/shared";
+
+export type {
+  Event,
+  EventDocument,
+  EventWithId,
+} from "@/types/event";
+
+export type {
+  Asset,
+  AssetDocument,
+  AssetKind,
+  AssetStatus,
+  AssetWithId,
+} from "@/types/asset";
+
+export type {
+  Attendee,
+  AttendeeDocument,
+  AttendeeWithId,
+} from "@/types/attendee";
+
+export type {
+  FormResponse,
+  FormResponseAnswer,
+  FormResponseDocument,
+  FormResponseDocumentWithId,
+  FormResponseInput,
+  FormResponseValue,
+} from "@/types/formResponse";
+
+export type {
+  Announcement,
+  AnnouncementChannel,
+  AnnouncementDocument,
+  AnnouncementDocumentWithId,
+} from "@/types/announcement";
+
+export type { User, UserWithId } from "@/types/user";
+
+export type {
+  BillingHistoryItem,
+  BillingPeriod,
+  CardBrand,
+  Invoice,
+  InvoiceStatus,
+  InvoiceWithId,
+  Payment,
+  PaymentMethod,
+  PaymentMethodDocument,
+  PaymentMethodDocumentWithId,
+  PaymentStatus,
+  PaymentWithId,
+  Plan,
+  PlanId,
+  Price,
+  Subscription,
+  SubscriptionStatus,
+  SubscriptionWithId,
+} from "@/types/billing";

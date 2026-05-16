@@ -1,34 +1,48 @@
-import {FormField, ContentType} from "@/types/campaign";
-import { Timestamp } from "firebase/firestore";
-import { Price } from "@/types/billing";
+import type { Timestamp } from "firebase/firestore";
+import type {
+  EventMedia,
+  EventPrice,
+  FormField,
+  Landing,
+  Sponsor,
+  SponsorDisplay,
+} from "@/types/shared";
 
-export type Event = {
-  id?: string;
+/** `events/{eventId}` — Firestore document (no doc id in body). */
+export type EventDocument = {
   campaign_id: string;
   slug: string;
   published: boolean;
-  landing: TextStructure;
-  location: string;
+  landing: Landing;
+  event_date: Timestamp | null;
+  location: string | null;
   form_fields: FormField[];
-  price?: Price | null;
+  media: EventMedia;
+  sponsors: Sponsor[];
+  sponsors_display: SponsorDisplay;
+  attendee_count: number;
+  price: EventPrice | null;
   created_at: Timestamp;
   updated_at: Timestamp;
-  sponsors: string[];
-  sponsor_display: string;
-  media: {hero_url?: string; gallery_url?: string};
 };
 
-export type TextStructure = {
-  headline: string;
-  subhead: string;
-  body_md: string;
-};
-
-export type CalendarEntry = {
+/** API / mock serialized event. */
+export type Event = {
   id: string;
   campaign_id: string;
-  campaign_title: string;
-  type: ContentType | "event";
-  scheduled_at: string;
-  title: string;
+  slug: string;
+  published: boolean;
+  landing: Landing;
+  form_fields: FormField[];
+  attendee_count: number;
+  price?: EventPrice | null;
+  media?: EventMedia;
+  sponsors?: Sponsor[];
+  sponsors_display?: SponsorDisplay;
+  event_date?: string | null;
+  location?: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
+
+export type EventWithId = Event;
