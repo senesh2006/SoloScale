@@ -8,6 +8,7 @@ import {
   unauthorized,
 } from "@/lib/firebase/auth-helpers";
 import { getOwnedCampaign } from "@/lib/firestore/queries";
+import type { CampaignStrategy } from "@/types/campaign";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -35,7 +36,7 @@ export async function POST(request: Request, { params }: Params) {
     title: campaign.title as string,
     goal_prompt: campaign.goal_prompt as string,
     hint: body?.hint,
-    strategy: campaign.strategy_json,
+    strategy: campaign.strategy_json as CampaignStrategy | null,
   });
 
   return NextResponse.json({ script });

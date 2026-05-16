@@ -1,61 +1,26 @@
-import {
-  adaptDev1StrategyToDashboard,
-  buildAiHeroMeta,
-} from "@/lib/adapters/dev1StrategyToDashboard";
-import {
-  addReadyAsset,
-  setAiHeroMeta,
-  updateCampaignStrategy,
-  type CreateCampaignMode,
-} from "@/lib/mock-store";
 import type { CampaignStrategy } from "@/types/campaign";
-import type {
-  Dev1CampaignResponse,
-  Dev1CampaignStrategy,
-} from "@/types/dev1-ai";
+import type { Dev1CampaignStrategy, Dev1SavedAsset } from "@/types/dev1-ai";
 
+/**
+ * Helper that previously combined a Dev1 AI response with the in-memory
+ * `mock-store` to instantly publish a campaign's strategy + assets. The
+ * Firestore-only architecture on `testing` removed `mock-store`, so this
+ * helper is currently inert.
+ *
+ * To restore: rewrite to write the strategy onto `campaigns/{id}` and the
+ * generated assets into the `assets` collection via `firebase-admin`.
+ */
 export function applyDev1ToCampaign(
-  campaignId: string,
-  input: {
+  _campaignId: string,
+  _input: {
     title: string;
     goal_prompt: string;
-    mode: CreateCampaignMode;
+    mode: "all" | "strategy";
     dev1Strategy: Dev1CampaignStrategy;
-    assets?: Dev1CampaignResponse["assets"];
+    assets?: Dev1SavedAsset[];
   },
-): CampaignStrategy {
-  const dashboardStrategy = adaptDev1StrategyToDashboard(input.dev1Strategy, {
-    title: input.title,
-    goal_prompt: input.goal_prompt,
-  });
-
-  setAiHeroMeta(campaignId, buildAiHeroMeta(input.dev1Strategy));
-
-  updateCampaignStrategy(campaignId, dashboardStrategy, {
-    withEvent: input.mode === "all",
-  });
-
-  if (input.mode === "all" && input.assets) {
-    const { flyer, voiceover } = input.assets;
-    if (flyer?.url) {
-      addReadyAsset(campaignId, "flyer", {
-        url: flyer.url,
-        thumbnail_url: flyer.url,
-        prompt: input.dev1Strategy.posts.find((p) => p.suggestedFlyerPrompt)
-          ?.suggestedFlyerPrompt,
-        label: "Hero flyer",
-      });
-    }
-    if (voiceover?.url) {
-      addReadyAsset(campaignId, "voiceover", {
-        url: voiceover.url,
-        prompt: input.dev1Strategy.posts.find(
-          (p) => p.suggestedVoiceoverScript,
-        )?.suggestedVoiceoverScript,
-        label: "Hero voice-over",
-      });
-    }
-  }
-
-  return dashboardStrategy;
+): CampaignStrategy | null {
+  throw new Error(
+    "applyDev1ToCampaign is not implemented for Firestore yet. Re-port from `mock-store` if you need the AI-service strategy flow.",
+  );
 }
