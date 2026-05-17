@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { ArrowRight, Mail, Lock, Phone } from "lucide-react";
+import { ArrowRight, Mail, Lock } from "lucide-react";
 import { AuthShell } from "@/components/layout/AuthShell";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
-import { PhoneAuthForm } from "@/components/auth/PhoneAuthForm";
 import { useAuth } from "@/lib/firebase/auth-context";
 
-type Mode = "email" | "google" | "phone";
+type Mode = "email" | "google";
 
 export default function LoginPage() {
   return (
@@ -40,8 +39,10 @@ function LoginPageContent() {
   const [mode, setMode] = useState<Mode>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [testEmail, setTestEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTestMode, setShowTestMode] = useState(false);
 
   useEffect(() => {
     if (!initializing && user) router.replace(next);
@@ -74,6 +75,14 @@ function LoginPageContent() {
     }
   }
 
+  function handleTestBypass(e: React.FormEvent) {
+    e.preventDefault();
+    if (testEmail.trim()) {
+      localStorage.setItem("__test_email_bypass", testEmail.trim());
+      router.replace(next);
+    }
+  }
+
   return (
     <AuthShell
       title="Welcome back"
@@ -92,7 +101,7 @@ function LoginPageContent() {
     >
       <div className="space-y-5">
         <p className="text-xs text-zinc-500">
-          Pick one — email, Google, or phone is enough to log in.
+          Pick one — email or Google to log in.
         </p>
         <ModeTabs mode={mode} onChange={setMode} />
 
@@ -169,14 +178,41 @@ function LoginPageContent() {
           </div>
         )}
 
-        {mode === "phone" && (
-          <PhoneAuthForm
-            onSuccess={() => router.replace(next)}
-            recaptchaContainerId="recaptcha-login"
-            sendLabel="Send code"
-            verifyLabel="Log in"
-          />
-        )}
+        <div className="border-t border-zinc-200 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowTestMode(!showTestMode)}
+            className="text-xs text-zinc-500 hover:text-zinc-700 underline"
+          >
+            {showTestMode ? "Hide test mode" : "Test mode"}
+          </button>
+          {showTestMode && (
+            <form onSubmit={handleTestBypass} className="mt-3 space-y-3">
+              <p className="text-xs text-zinc-500">
+                Enter an email to bypass authentication (development only)
+              </p>
+              <TextField
+                name="test-email"
+                type="email"
+                label="Test Email"
+                placeholder="test@example.com"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+              />
+              <Button
+                type="submit"
+                variant="dark"
+                size="lg"
+                className="w-full"
+                rightIcon={<ArrowRight className="h-4 w-4" />}
+              >
+                Continue as Test User
+              </Button>
+            </form>
+          )}
+        </div>
+
+
       </div>
     </AuthShell>
   );
@@ -193,7 +229,7 @@ function ModeTabs({
     <div
       role="tablist"
       aria-label="Sign-in method"
-      className="grid grid-cols-3 gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-sm"
+      className="grid grid-cols-2 gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-sm"
     >
       <TabButton
         active={mode === "email"}
@@ -206,12 +242,6 @@ function ModeTabs({
         onClick={() => onChange("google")}
         icon={<GoogleMark />}
         label="Google"
-      />
-      <TabButton
-        active={mode === "phone"}
-        onClick={() => onChange("phone")}
-        icon={<Phone className="h-3.5 w-3.5" />}
-        label="Phone"
       />
     </div>
   );
