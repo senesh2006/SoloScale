@@ -16,11 +16,14 @@ import {
   LogOut,
   ChevronDown,
   CreditCard,
+  MessageCircle,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { cn, initials } from "@/lib/utils";
 import { CampaignNavTree } from "@/components/layout/CampaignNavTree";
 import { useAuth } from "@/lib/firebase/auth-context";
+import { DashboardChatProvider } from "@/components/chat/dashboard-chat-context";
+import { ChatFloatingDock } from "@/components/chat/ChatFloatingDock";
 
 type NavItem = {
   href: string;
@@ -31,6 +34,7 @@ type NavItem = {
 const nav: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/campaigns", label: "Campaigns", icon: Rocket },
+  { href: "/dashboard/chat", label: "Chat", icon: MessageCircle },
   { href: "/dashboard/calendar", label: "Calendar", icon: Calendar },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ];
@@ -79,7 +83,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <DashboardChatProvider>
+      <div className="min-h-screen bg-zinc-50">
       {/* Sidebar */}
       <aside
         className={cn(
@@ -283,5 +288,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <main className="px-4 py-8 sm:px-8 lg:px-10 lg:py-10">{children}</main>
       </div>
     </div>
+      <ChatFloatingDock />
+    </DashboardChatProvider>
   );
 }
