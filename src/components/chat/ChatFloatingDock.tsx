@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { MessageCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { glassPanelClass } from "@/components/ui/Card";
 import { useDashboardChat } from "./dashboard-chat-context";
 import { ChatPanel } from "./ChatPanel";
 
@@ -30,12 +29,19 @@ export function ChatFloatingDock() {
     <>
       <button
         type="button"
+        dir="ltr"
         onClick={toggleDock}
         className={cn(
-          "fixed z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg shadow-violet-600/30 transition hover:bg-violet-500 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-violet-300",
-          "bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-[max(1.5rem,env(safe-area-inset-right))]",
+          "z-[60] flex h-14 w-14 items-center justify-center rounded-full [-webkit-tap-highlight-color:transparent] bg-violet-600 text-white shadow-lg shadow-violet-600/30 transition hover:bg-violet-500 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-violet-300 motion-reduce:transition-none motion-reduce:hover:scale-100",
           dockOpen && "hidden",
         )}
+        style={{
+          position: "fixed",
+          left: "auto",
+          top: "auto",
+          right: "max(1rem, env(safe-area-inset-right, 0px))",
+          bottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
+        }}
         aria-label="Open assistant chat"
       >
         <MessageCircle className="h-7 w-7" />
@@ -43,12 +49,21 @@ export function ChatFloatingDock() {
 
       {dockOpen ? (
         <div
+          dir="ltr"
           className={cn(
-            glassPanelClass,
-            "fixed z-[60] flex w-[min(100vw-1.5rem,22rem)] flex-col overflow-hidden shadow-2xl animate-in fade-in duration-200",
-            "bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-[max(1.5rem,env(safe-area-inset-right))]",
-            "max-h-[min(32rem,calc(100dvh-env(safe-area-inset-bottom)-1.5rem))]",
+            // Do not use glass-grain here: it sets position:relative and (loaded after Tailwind)
+            // overrides `position:fixed`, so the panel sits in document flow (bottom-left).
+            "animate-fade-in z-[60] flex w-[calc(100vw-1.5rem)] max-w-[22rem] flex-col overflow-hidden rounded-2xl border border-white/34 bg-white/34 shadow-[0_1px_3px_rgba(9,9,11,0.07)] shadow-2xl backdrop-blur-xl backdrop-saturate-150",
           )}
+          style={{
+            position: "fixed",
+            left: "auto",
+            top: "auto",
+            right: "max(1rem, env(safe-area-inset-right, 0px))",
+            bottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
+            maxHeight:
+              "min(32rem, calc(100dvh - env(safe-area-inset-bottom, 0px) - 2rem))",
+          }}
           role="dialog"
           aria-label="Assistant chat"
         >
