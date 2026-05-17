@@ -1,0 +1,11 @@
+# AI microservice in this monorepo. Build must run inside soloscale-ai-service so
+# `tsc` outputs dist/server.js before `npm run start`.
+# https://render.com/docs/monorepo-support#setting-a-root-directory
+services:
+  - type: web
+    name: soloscale-ai-service
+    runtime: node
+    rootDir: soloscale-ai-service
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health

@@ -50,6 +50,14 @@ Use a name from `GET /api/voices`. Omit `voiceName` for default (`ELEVENLABS_VOI
 
 Read `assets.flyerError` and `assets.voiceoverError` — partial success is intentional.
 
+## Render: `Cannot find module ... dist/server.js`
+
+The path usually means **Root Directory** is set to `src/` (Next.js). In this repo, `soloscale-ai-service` sits at the **monorepo root**, next to `src/`.
+
+**Manual service:** Root Directory **`soloscale-ai-service`**, build **`npm install && npm run build`**, start **`npm run start`**.
+
+**Infrastructure as code:** `render.yaml` at the repo root uses `rootDir: soloscale-ai-service` ([Render monorepo docs](https://render.com/docs/monorepo-support#setting-a-root-directory)).
+
 ## Reading terminal logs
 
 ```
