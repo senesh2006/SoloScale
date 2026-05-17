@@ -1,0 +1,9 @@
+# SoloScale is a Node.js / TypeScript project. Application dependencies live in:
+#   package.json              — Next.js app (root)
+#   soloscale-ai-service/package.json — AI service
+#
+# Install with:
+#   npm install
+#   (cd soloscale-ai-service && npm install)
+#
+# Add Python package lines below only if you introduce Python scripts or tooling.

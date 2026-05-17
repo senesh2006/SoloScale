@@ -29,11 +29,15 @@ export function ChatPanel({ variant = "page" }: Props) {
     campaignId: string;
     dashboardUrl: string;
   } | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const compact = variant === "floating";
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const area = messagesScrollRef.current;
+    if (!area) return;
+    requestAnimationFrame(() => {
+      area.scrollTo({ top: area.scrollHeight, behavior: "smooth" });
+    });
   }, [messages, loading]);
 
   const send = useCallback(async () => {
@@ -119,7 +123,10 @@ export function ChatPanel({ variant = "page" }: Props) {
             : glassPanelClass,
         )}
       >
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
+        <div
+          ref={messagesScrollRef}
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-4 md:p-6"
+        >
           {messages.length === 0 && !loading && (
             <div
               className={cn(
@@ -163,8 +170,6 @@ export function ChatPanel({ variant = "page" }: Props) {
               </div>
             </div>
           )}
-
-          <div ref={bottomRef} />
         </div>
 
         {error && (
