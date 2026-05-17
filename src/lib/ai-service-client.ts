@@ -1,17 +1,40 @@
+
 const DEFAULT_URL = "http://localhost:4000";
 const CAMPAIGN_TIMEOUT_MS = 180_000;
 const DEFAULT_TIMEOUT_MS = 90_000;
 
-export function isAiServiceEnabled(): boolean {
-  const raw = process.env.AI_SERVICE_URL?.trim();
-  if (raw === "false" || raw === "0" || raw === "") return false;
-  return true;
+function normalizeEnv(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const t = raw.trim();
+  return t === "" ? undefined : t;
+}
+
+function localLoopbackHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "::1";
 }
 
 export function getAiServiceUrl(): string {
-  const raw = process.env.AI_SERVICE_URL?.trim();
+  const raw = normalizeEnv(process.env.AI_SERVICE_URL);
   if (!raw || raw === "true") return DEFAULT_URL;
   return raw.replace(/\/$/, "");
+}
+
+export function isAiServiceEnabled(): boolean {
+  const explicit = process.env.AI_SERVICE_URL;
+  if (explicit === "") return false;
+  const raw = normalizeEnv(explicit);
+  if (raw === "false" || raw === "0") return false;
+
+  const baseUrl = getAiServiceUrl();
+  if (!process.env.VERCEL) return true;
+
+  try {
+    const href = baseUrl.includes("://") ? baseUrl : `http://${baseUrl}`;
+    return !localLoopbackHostname(new URL(href).hostname);
+  } catch {
+    return raw !== undefined;
+  }
 }
 
 export class AiServiceError extends Error {

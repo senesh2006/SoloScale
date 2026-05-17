@@ -19,7 +19,10 @@ export async function POST(request: Request) {
 
   if (!isAiServiceEnabled()) {
     return NextResponse.json(
-      { error: "AI service is disabled. Set AI_SERVICE_URL in .env.local." },
+      {
+        error:
+          "Vision seed needs the SoloScale AI service. On Vercel set AI_SERVICE_URL to your Deploy URL (Render, etc.).",
+      },
       { status: 503 },
     );
   }
