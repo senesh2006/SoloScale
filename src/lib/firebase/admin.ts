@@ -24,9 +24,25 @@ export function getFirebaseAdmin() {
     return adminApp;
   }
 
-  const path = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  if (path) {
-    const serviceAccount = JSON.parse(readFileSync(path, "utf8"));
+  let serviceAccount;
+  
+  // Try to get service account from JSON env var first
+  const jsonStr = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (jsonStr) {
+    serviceAccount = JSON.parse(jsonStr);
+  } else {
+    // Try to read from file path
+    const path = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+    if (path) {
+      try {
+        serviceAccount = JSON.parse(readFileSync(path, "utf8"));
+      } catch (err) {
+        console.warn(`[Firebase Admin] Could not read service account from ${path}:`, err);
+      }
+    }
+  }
+
+  if (serviceAccount) {
     adminApp = initializeApp({
       credential: cert(serviceAccount),
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
