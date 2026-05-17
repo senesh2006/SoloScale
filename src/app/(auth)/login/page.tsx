@@ -39,8 +39,10 @@ function LoginPageContent() {
   const [mode, setMode] = useState<Mode>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [testEmail, setTestEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTestMode, setShowTestMode] = useState(false);
 
   useEffect(() => {
     if (!initializing && user) router.replace(next);
@@ -70,6 +72,14 @@ function LoginPageContent() {
       setError(humanizeAuthError(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  function handleTestBypass(e: React.FormEvent) {
+    e.preventDefault();
+    if (testEmail.trim()) {
+      localStorage.setItem("__test_email_bypass", testEmail.trim());
+      router.replace(next);
     }
   }
 
@@ -167,6 +177,40 @@ function LoginPageContent() {
             </button>
           </div>
         )}
+
+        <div className="border-t border-zinc-200 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowTestMode(!showTestMode)}
+            className="text-xs text-zinc-500 hover:text-zinc-700 underline"
+          >
+            {showTestMode ? "Hide test mode" : "Test mode"}
+          </button>
+          {showTestMode && (
+            <form onSubmit={handleTestBypass} className="mt-3 space-y-3">
+              <p className="text-xs text-zinc-500">
+                Enter an email to bypass authentication (development only)
+              </p>
+              <TextField
+                name="test-email"
+                type="email"
+                label="Test Email"
+                placeholder="test@example.com"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+              />
+              <Button
+                type="submit"
+                variant="dark"
+                size="lg"
+                className="w-full"
+                rightIcon={<ArrowRight className="h-4 w-4" />}
+              >
+                Continue as Test User
+              </Button>
+            </form>
+          )}
+        </div>
 
 
       </div>
