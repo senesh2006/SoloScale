@@ -70,6 +70,18 @@ Expect `status: "ok"` and `keyPools` showing strategy/image pool sizes.
 | `npm start` | Run `dist/server.js` |
 | `npm run typecheck` | Type-check without emit |
 
+## Deploy on Render
+
+Monorepo: set **Root Directory** to `soloscale-ai-service` (or use the repo-root `render.yaml`).
+
+| Setting | Value |
+| ------- | ----- |
+| Build Command | `npm install --include=dev && npm run build` |
+| Start Command | `npm start` |
+| Health Check | `/health` |
+
+`dist/` is not committed; the build **must** run `tsc`. Set `USE_CURL_FETCH=false` and `PUBLIC_BASE_URL` to your Render URL.
+
 ## Team integration
 
 | Role | Responsibility |

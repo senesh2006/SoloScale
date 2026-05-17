@@ -9,10 +9,11 @@
     "dev": "tsx watch --include=.env src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "render:build": "npm install --include=dev && npm run build"
   },
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
   },
   "dependencies": {
     "@google/genai": "^1.0.0",
