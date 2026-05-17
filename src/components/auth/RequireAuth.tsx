@@ -19,15 +19,27 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  // TEMPORARY BYPASS - Remove this when Firebase auth is working
+  const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
+
   useEffect(() => {
     if (initializing) return;
-    if (!user) {
+    if (!user && !BYPASS_AUTH) {
       const next = encodeURIComponent(pathname || "/dashboard");
       router.replace(`/login?next=${next}`);
     }
   }, [user, initializing, pathname, router]);
 
-  if (initializing || !user) {
+  if (initializing) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  // TEMPORARY BYPASS - Allow access without user when bypass is enabled
+  if (!user && !BYPASS_AUTH) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50">
         <Spinner size="lg" />
