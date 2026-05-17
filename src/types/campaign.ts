@@ -111,9 +111,16 @@ export type VoiceoverInput = {
 };
 
 /** Reminder/automation entries scheduled for an event. */
-export type ReminderStatus = "scheduled" | "sent" | "cancelled";
+export type ReminderStatus =
+  | "scheduled"
+  | "sent"
+  | "cancelled"
+  | "failed";
 
 export type ReminderPresetId = "7d" | "24h" | "1h" | "custom";
+
+/** Delivery channel for reminders (`in_app` is reserved / not dispatched by cron yet). */
+export type ReminderChannel = "email" | "in_app";
 
 export type EventReminder = {
   id: string;
@@ -125,8 +132,11 @@ export type EventReminder = {
   body: string;
   status: ReminderStatus;
   enabled: boolean;
-  channel?: "email" | "in_app";
+  channel?: ReminderChannel;
   sent_at?: string | null;
+  /** Populated after a successful cron dispatch. */
+  delivered_count?: number;
+  last_error?: string | null;
 };
 
 export type CalendarEntry = {

@@ -22,7 +22,7 @@ import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiFetchResponse } from "@/lib/api";
 import type {
   Asset,
   AssetKind,
@@ -213,10 +213,10 @@ export default function CampaignDetailPage() {
     setGeneratingReport(true);
     setReportError(null);
     try {
-      const res = await fetch(
-        `/api/campaigns/${id}/report?format=${format}`,
-        { method: "POST" },
-      );
+      const res = await apiFetchResponse(`/api/campaigns/${id}/report`, {
+        method: "POST",
+        body: JSON.stringify({ format }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(
@@ -290,7 +290,7 @@ export default function CampaignDetailPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="outline"
+              variant="primary"
               size="sm"
               disabled={generatingReport}
               leftIcon={
@@ -302,7 +302,7 @@ export default function CampaignDetailPage() {
               }
               onClick={() => downloadReport("md")}
             >
-              Report (.md)
+              Create report
             </Button>
             <Button
               variant="outline"
@@ -310,7 +310,7 @@ export default function CampaignDetailPage() {
               disabled={generatingReport}
               onClick={() => downloadReport("html")}
             >
-              Report (.html)
+              HTML version
             </Button>
           </div>
         </div>

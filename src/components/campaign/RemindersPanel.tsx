@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import { apiFetch } from "@/lib/api";
-import type { EventReminder, ReminderPresetId } from "@/types/campaign";
+import type {
+  EventReminder,
+  ReminderChannel,
+  ReminderPresetId,
+} from "@/types/campaign";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
@@ -23,6 +27,11 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
+
+function channelLabel(ch?: ReminderChannel): string {
+  if (ch === "in_app") return "In-app";
+  return "Email";
+}
 
 type Props = {
   eventId: string | null;
@@ -115,15 +124,19 @@ export function RemindersPanel({
 
   const timelineItems = useMemo(() => {
     if (!eventMs) return [];
-    const items: { id: string; ms: number; label: string; kind: "reminder" | "event" }[] =
-      reminders
-        .filter((r) => r.enabled && r.status !== "cancelled")
-        .map((r) => ({
-          id: r.id,
-          ms: +new Date(r.scheduled_for),
-          label: r.label,
-          kind: "reminder" as const,
-        }));
+    const items: {
+      id: string;
+      ms: number;
+      label: string;
+      kind: "reminder" | "event";
+    }[] = reminders
+      .filter((r) => r.enabled && r.status !== "cancelled")
+      .map((r) => ({
+        id: r.id,
+        ms: +new Date(r.scheduled_for),
+        label: r.label,
+        kind: "reminder" as const,
+      }));
     items.push({
       id: "event",
       ms: eventMs,
@@ -289,7 +302,20 @@ export function RemindersPanel({
                 Automatic reminders
               </p>
               <p className="text-xs text-zinc-500">
-                Email attendees before the event — no manual send needed.
+                Email registered attendees on a schedule. Configure{" "}
+                <strong>Resend</strong> (
+                <code className="rounded bg-zinc-100 px-1 py-0.5 text-[10px]">
+                  RESEND_API_KEY
+                </code>
+                ,{" "}
+                <code className="rounded bg-zinc-100 px-1 py-0.5 text-[10px]">
+                  EMAIL_FROM
+                </code>
+                ) and a cron that calls{" "}
+                <code className="rounded bg-zinc-100 px-1 py-0.5 text-[10px]">
+                  /api/cron/dispatch-reminders
+                </code>{" "}
+                with <code className="rounded bg-zinc-100 px-1 py-0.5 text-[10px]">CRON_SECRET</code>.
               </p>
             </div>
           </div>
@@ -367,7 +393,9 @@ export function RemindersPanel({
           {PRESETS.map((preset) => {
             const record = getPresetReminder(preset.id);
             const enabled =
-              !!record?.enabled && record.status === "scheduled";
+              !!record?.enabled &&
+              record.status !== "cancelled" &&
+              record.status !== "sent";
             const sendAt = computeSendTime(preset.id);
             const sendPast = isPast(sendAt);
             const isBusy = busyId === preset.id;
@@ -522,8 +550,9 @@ export function RemindersPanel({
       </div>
 
       <p className="text-center text-[11px] text-zinc-400">
-        Reminders send via email to {attendeeCount} registered attendee
-        {attendeeCount === 1 ? "" : "s"} (mock mode — logged only).
+        Reminders email each attendee&apos;s registration address (
+        {attendeeCount} registrants). Dispatch runs on the server when you set
+        env vars and call the cron route with <strong>CRON_SECRET</strong>.
       </p>
     </div>
   );
@@ -573,7 +602,7 @@ function PresetCard({
       </div>
       <p className="mt-2 text-sm font-bold text-zinc-950">{preset.label}</p>
       <p className="mt-1 text-xs text-zinc-500">
-        Sends {format(sendAt, "EEE, MMM d · h:mm a")}
+        Sends email {format(sendAt, "EEE, MMM d · h:mm a")}
       </p>
       {sendPast && !enabled && (
         <p className="mt-2 text-[10px] font-semibold text-amber-600">
@@ -661,8 +690,24 @@ function ReminderRow({
 }) {
   const scheduled = new Date(reminder.scheduled_for);
   const sent = reminder.status === "sent";
+  const failed = reminder.status === "failed";
   const cancelled = reminder.status === "cancelled" || !reminder.enabled;
-  const upcoming = !cancelled && !sent && !isPast(scheduled);
+  const upcoming = !cancelled && !sent && !failed && !isPast(scheduled);
+
+  const pillStatus:
+    | "scheduled"
+    | "sent"
+    | "off"
+    | "past"
+    | "failed" = failed
+    ? "failed"
+    : sent
+      ? "sent"
+      : cancelled
+        ? "off"
+        : isPast(scheduled)
+          ? "past"
+          : "scheduled";
 
   return (
     <li
@@ -671,6 +716,7 @@ function ReminderRow({
         cancelled && "opacity-60",
         upcoming && "border-violet-200",
         sent && "border-emerald-200 bg-emerald-50/30",
+        failed && "border-red-200 bg-red-50/20",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -679,11 +725,10 @@ function ReminderRow({
             <p className="text-sm font-semibold text-zinc-950">
               {reminder.label}
             </p>
-            <StatusPill
-              status={
-                sent ? "sent" : cancelled ? "off" : isPast(scheduled) ? "past" : "scheduled"
-              }
-            />
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-600">
+              {channelLabel(reminder.channel)}
+            </span>
+            <StatusPill status={pillStatus} />
           </div>
           <p className="mt-0.5 text-xs font-medium text-zinc-600">
             {reminder.subject}
@@ -700,11 +745,18 @@ function ReminderRow({
             )}
             <span className="inline-flex items-center gap-1">
               <Users className="h-3 w-3" />
-              {attendeeCount} recipients
+              {typeof reminder.delivered_count === "number"
+                ? `${reminder.delivered_count} delivered`
+                : `${attendeeCount} recipients`}
             </span>
           </div>
+          {failed && reminder.last_error && (
+            <p className="mt-2 text-[10px] font-medium text-red-600">
+              {reminder.last_error}
+            </p>
+          )}
         </div>
-        {reminder.preset_id === "custom" && (
+        {reminder.preset_id == null && (
           <button
             type="button"
             disabled={busy}
@@ -723,19 +775,21 @@ function ReminderRow({
 function StatusPill({
   status,
 }: {
-  status: "scheduled" | "sent" | "off" | "past";
+  status: "scheduled" | "sent" | "off" | "past" | "failed";
 }) {
   const styles = {
     scheduled: "bg-violet-100 text-violet-700",
     sent: "bg-emerald-100 text-emerald-700",
     off: "bg-zinc-100 text-zinc-500",
     past: "bg-amber-100 text-amber-700",
+    failed: "bg-red-100 text-red-700",
   };
   const labels = {
     scheduled: "Scheduled",
     sent: "Sent",
     off: "Off",
     past: "Past",
+    failed: "Failed",
   };
   return (
     <span

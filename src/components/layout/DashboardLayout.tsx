@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -30,6 +31,10 @@ type NavItem = {
   label: string;
   icon: React.ElementType;
 };
+
+/** Unsplash: sun rays above clouds (Paweł Czerwiński) — https://unsplash.com/photos/Ih3-ww0fBHM */
+const DASHBOARD_BG =
+  "https://images.unsplash.com/photo-1536259199821-24af7564fe9b?auto=format&fit=max&w=2400&q=80";
 
 const nav: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -84,11 +89,29 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <DashboardChatProvider>
-      <div className="min-h-screen bg-zinc-50">
+      <div className="relative min-h-screen overflow-x-hidden">
+        <div
+          className="pointer-events-none fixed inset-0 z-0 min-h-[100dvh]"
+          aria-hidden
+        >
+          <Image
+            src={DASHBOARD_BG}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover object-center brightness-[0.56]"
+            priority={false}
+          />
+        </div>
+        <div
+          className="pointer-events-none fixed inset-0 z-[1] min-h-[100dvh] bg-gradient-to-br from-white/78 via-sky-50/38 to-white/84"
+          aria-hidden
+        />
+        <div className="relative z-10 min-h-screen">
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-zinc-200 bg-white transition-transform duration-200 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-zinc-200/80 bg-white/90 shadow-sm backdrop-blur-xl transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -287,6 +310,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
         <main className="px-4 py-8 sm:px-8 lg:px-10 lg:py-10">{children}</main>
       </div>
+    </div>
     </div>
       <ChatFloatingDock />
     </DashboardChatProvider>

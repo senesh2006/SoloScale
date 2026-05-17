@@ -9,6 +9,7 @@ import {
 } from "@/lib/firebase/auth-helpers";
 import { getOwnedEvent } from "@/lib/firestore/queries";
 import {
+  coerceReminderChannel,
   createCustomReminder,
   isPresetId,
   listEventReminders,
@@ -107,6 +108,7 @@ export async function POST(request: Request, { params }: Params) {
       enabled: Boolean(body.enabled),
       subject: typeof body.subject === "string" ? body.subject : undefined,
       body: typeof body.body === "string" ? body.body : undefined,
+      channel: coerceReminderChannel(body.channel),
     });
 
     return NextResponse.json({ reminder }, { status: 200 });
@@ -141,6 +143,7 @@ export async function POST(request: Request, { params }: Params) {
     subject,
     body: messageBody,
     label,
+    channel: coerceReminderChannel(body.channel),
   });
 
   return NextResponse.json({ reminder }, { status: 201 });

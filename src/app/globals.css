@@ -211,15 +211,15 @@ body {
   animation: shimmer 1.6s linear infinite;
 }
 
-/* Animated gradient text */
+/* Animated gradient text — sky-forward (less purple for a brighter marketing feel) */
 .gradient-text {
   background: linear-gradient(
     120deg,
-    #7c3aed 0%,
-    #d946ef 25%,
-    #6366f1 50%,
-    #7c3aed 75%,
-    #d946ef 100%
+    #0369a1 0%,
+    #0ea5e9 30%,
+    #38bdf8 55%,
+    #0284c7 80%,
+    #0ea5e9 100%
   );
   background-size: 300% auto;
   -webkit-background-clip: text;
@@ -247,17 +247,17 @@ body {
   animation: shine 1s ease-out;
 }
 
-/* Aurora blob — use as a -z-10 sibling */
+/* Aurora blob — sky / cyan (minimal purple for homepage atmosphere) */
 .aurora-blob {
   background: conic-gradient(
     from 90deg at 50% 50%,
-    #7c3aed,
-    #d946ef,
-    #6366f1,
-    #7c3aed
+    #38bdf8,
+    #7dd3fc,
+    #0ea5e9,
+    #bae6fd
   );
   filter: blur(64px);
-  opacity: 0.3;
+  opacity: 0.32;
   animation: aurora 16s ease-in-out infinite;
 }
 

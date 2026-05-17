@@ -54,6 +54,11 @@ export type CreateCampaignToolResult =
   | { ok: true; campaignId: string; dashboardUrl: string }
   | { ok: false; error: string };
 
+export type GeminiAssistantTurnResult = {
+  content: string;
+  campaignCreated?: { campaignId: string; dashboardUrl: string };
+};
+
 function buildSystemInstruction(campaignContextBlock: string): string {
   const ctx =
     campaignContextBlock.trim() ||
@@ -69,7 +74,7 @@ export async function runGeminiAssistantTurn(args: {
     goal_prompt: string;
     mode?: string;
   }) => Promise<CreateCampaignToolResult>;
-}): Promise<string> {
+}): Promise<GeminiAssistantTurnResult> {
   const keys = getGeminiApiKeys();
   if (keys.length === 0) {
     throw new Error(
@@ -96,6 +101,8 @@ export async function runGeminiAssistantTurn(args: {
   const systemInstruction = buildSystemInstruction(args.campaignContextBlock);
 
   return tryAcrossGeminiKeys(keys, "chat", async (apiKey) => {
+    let campaignCreated: GeminiAssistantTurnResult["campaignCreated"];
+
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: GEMINI_TEXT_MODEL,
@@ -123,7 +130,10 @@ export async function runGeminiAssistantTurn(args: {
       const calls = result.response.functionCalls();
       if (!calls?.length) {
         const text = result.response.text();
-        return text || "I’m sorry — I don’t have a response right now.";
+        return {
+          content: text || "I’m sorry — I don’t have a response right now.",
+          campaignCreated,
+        };
       }
 
       const responseParts: Part[] = [];
@@ -152,6 +162,12 @@ export async function runGeminiAssistantTurn(args: {
               goal_prompt,
               mode,
             });
+            if (exec.ok) {
+              campaignCreated = {
+                campaignId: exec.campaignId,
+                dashboardUrl: exec.dashboardUrl,
+              };
+            }
             responseParts.push({
               functionResponse: {
                 name: call.name,
@@ -172,6 +188,10 @@ export async function runGeminiAssistantTurn(args: {
       result = await chat.sendMessage(responseParts);
     }
 
-    return result.response.text() || "Request took too many steps; try again.";
+    return {
+      content:
+        result.response.text() || "Request took too many steps; try again.",
+      campaignCreated,
+    };
   });
 }

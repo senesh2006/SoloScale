@@ -65,6 +65,15 @@
         { "fieldPath": "campaign_id", "order": "ASCENDING" },
         { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "event_reminders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "scheduled_for", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

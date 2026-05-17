@@ -137,17 +137,46 @@ export async function POST(request: Request) {
 
   try {
     const campaignContextBlock = await loadCampaignContextBlock(userId);
-    const text = await runGeminiAssistantTurn({
+    const { content, campaignCreated } = await runGeminiAssistantTurn({
       messages: parsed.data.messages,
       campaignContextBlock,
       executeCreateCampaign: (input) =>
         createCampaignFromChatRequest(request, input),
     });
-    return NextResponse.json({ role: "assistant" as const, content: text });
+    return NextResponse.json({
+      role: "assistant" as const,
+      content,
+      ...(campaignCreated ? { campaign_created: campaignCreated } : {}),
+    });
   } catch (err) {
     console.error("chat error:", err);
     const message =
       err instanceof Error ? err.message : "Chat request failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+
+    if (
+      message ===
+      "Ran out of API credits. Please try again later or check billing in Google AI Studio."
+    ) {
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
+
+    let out = message;
+    if (
+      /ENOTFOUND|fetch failed|ECONNREFUSED|EAI_AGAIN|network|certificate/i.test(
+        out,
+      )
+    ) {
+      out +=
+        " If this repeats for every key, the server cannot reach generativelanguage.googleapis.com (DNS, firewall, VPN, or offline).";
+    }
+    if (/HTTP\s+404\b/i.test(out) || /not found/i.test(out)) {
+      out +=
+        " Check GEMINI_TEXT_MODEL in .env.local (e.g. gemini-2.0-flash or gemini-2.5-flash per AI Studio).";
+    }
+    if (/HTTP\s+429\b|resource exhausted|quota/i.test(out)) {
+      out +=
+        " Gemini quota exceeded — wait, add billing, or use another API key.";
+    }
+    return NextResponse.json({ error: out }, { status: 502 });
   }
 }

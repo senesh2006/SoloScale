@@ -194,7 +194,7 @@ export default function DashboardPage() {
               </div>
               <div
                 className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/80 transition-transform duration-300 group-hover:rotate-6",
+                  "flex h-10 w-10 items-center justify-center rounded-xl bg-white/70 shadow-sm ring-1 ring-white/55 backdrop-blur-sm transition-transform duration-300 group-hover:rotate-6",
                 )}
               >
                 <s.icon
@@ -232,7 +232,7 @@ export default function DashboardPage() {
               <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="divide-y divide-zinc-100 border-t border-zinc-100">
+          <div className="divide-y divide-zinc-100/50 border-t border-zinc-100/50">
             {campaigns === null ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-6 py-4">
@@ -253,7 +253,7 @@ export default function DashboardPage() {
                 <Link
                   key={c.id}
                   href={`/dashboard/campaigns/${c.id}`}
-                  className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-zinc-50/60"
+                  className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-white/35"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-50 to-indigo-50 text-violet-600 ring-1 ring-violet-100">
                     <Rocket className="h-4 w-4" />
@@ -293,7 +293,7 @@ export default function DashboardPage() {
               <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="border-t border-zinc-100 p-3">
+          <div className="border-t border-zinc-100/50 p-3">
             {calendar === null ? (
               <div className="space-y-3 p-3">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -311,7 +311,7 @@ export default function DashboardPage() {
                   <li key={e.id}>
                     <Link
                       href={`/dashboard/campaigns/${e.campaign_id}`}
-                      className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-zinc-50"
+                      className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/40"
                     >
                       <div className="flex w-10 shrink-0 flex-col items-center">
                         <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { glassPanelClass } from "@/components/ui/Card";
 
 type Filter = "all" | CampaignStatus;
 
@@ -68,7 +69,12 @@ export default function CampaignsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
+        <div
+          className={cn(
+            glassPanelClass,
+            "flex flex-wrap gap-1 rounded-xl p-1",
+          )}
+        >
           {filters.map((f) => (
             <button
               key={f.value}
@@ -92,7 +98,7 @@ export default function CampaignsPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search campaigns..."
-            className="h-9 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-sm placeholder:text-zinc-400 transition-colors focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+            className="h-9 w-full rounded-xl border border-white/45 bg-white/45 pl-9 pr-3 text-sm placeholder:text-zinc-400 backdrop-blur-md transition-colors focus:border-violet-400/80 focus:bg-white/70 focus:outline-none focus:ring-2 focus:ring-violet-100/80"
           />
         </div>
       </div>
@@ -147,7 +153,10 @@ export default function CampaignsPage() {
               >
                 <Link
                   href={`/dashboard/campaigns/${campaign.id}`}
-                  className="group relative block overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_1px_2px_rgba(9,9,11,0.04)] transition-all hover:-translate-y-px hover:border-zinc-300 hover:shadow-md"
+                  className={cn(
+                    glassPanelClass,
+                    "group relative block overflow-hidden p-5 transition-all hover:-translate-y-px hover:border-white/60 hover:shadow-md",
+                  )}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 flex-1 space-y-1">

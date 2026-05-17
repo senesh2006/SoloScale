@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
+import { glassPanelClass } from "@/components/ui/Card";
 
 const typeIcons: Record<string, React.ElementType> = {
   event: Globe,
@@ -104,7 +105,12 @@ export default function CalendarPage() {
 
       {/* Filter chips */}
       {entries && entries.length > 0 && (
-        <div className="mt-8 flex flex-wrap gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
+        <div
+          className={cn(
+            glassPanelClass,
+            "mt-8 flex flex-wrap gap-1 rounded-xl p-1",
+          )}
+        >
           <button
             onClick={() => setFilter("all")}
             className={cn(
@@ -158,10 +164,11 @@ export default function CalendarPage() {
                     key={entry.id}
                     onClick={() => setSelectedEntry(entry)}
                     className={cn(
-                      "group flex w-full items-center gap-4 rounded-2xl border bg-white p-4 text-left transition-all hover:-translate-y-px hover:shadow-md",
+                      glassPanelClass,
+                      "group flex w-full items-center gap-4 p-4 text-left transition-all hover:-translate-y-px hover:border-white/60 hover:shadow-md",
                       isSelected
-                        ? "border-violet-300 ring-2 ring-violet-100"
-                        : "border-zinc-200",
+                        ? "border-violet-400/70 ring-2 ring-violet-200/60"
+                        : "",
                     )}
                   >
                     <div className="flex w-12 shrink-0 flex-col items-center">
@@ -208,7 +215,12 @@ export default function CalendarPage() {
         <div className="hidden lg:block">
           <div className="sticky top-24">
             {selectedEntry ? (
-              <div className="animate-fade-in rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl shadow-zinc-200/40">
+              <div
+                className={cn(
+                  glassPanelClass,
+                  "animate-fade-in p-6 shadow-xl shadow-zinc-900/8",
+                )}
+              >
                 <div className="mb-5 flex items-start justify-between">
                   <div
                     className={cn(
@@ -293,7 +305,7 @@ export default function CalendarPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/40 p-8 text-center">
+              <div className="rounded-2xl border border-dashed border-white/45 bg-white/35 p-8 text-center backdrop-blur-md">
                 <Clock className="mx-auto h-5 w-5 text-zinc-300" />
                 <p className="mt-2 text-xs font-medium text-zinc-500">
                   Select an entry to view details

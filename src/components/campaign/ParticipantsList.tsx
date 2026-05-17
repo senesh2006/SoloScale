@@ -1,15 +1,30 @@
 "use client";
 
 import type { Attendee } from "@/types/campaign";
+import type { AudienceInsights } from "@/types/audienceInsights";
 import { format, formatDistanceToNow } from "date-fns";
-import { User, Mail, Download, Search } from "lucide-react";
+import { User, Mail, Download, Search, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { initials } from "@/lib/utils";
+import { glassPanelClass } from "@/components/ui/Card";
+import { apiFetch } from "@/lib/api";
+import { initials, cn } from "@/lib/utils";
 
-export function ParticipantsList({ attendees }: { attendees: Attendee[] }) {
+type Props = {
+  attendees: Attendee[];
+  /** When set, shows "Analyze audience" (Gemini on form responses). */
+  eventId?: string;
+};
+
+export function ParticipantsList({ attendees, eventId }: Props) {
   const [q, setQ] = useState("");
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState<string | null>(null);
+  const [insight, setInsight] = useState<AudienceInsights | null>(null);
+  const [insightMeta, setInsightMeta] = useState<{
+    response_count: number;
+  } | null>(null);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -35,6 +50,34 @@ export function ParticipantsList({ attendees }: { attendees: Attendee[] }) {
     URL.revokeObjectURL(url);
   }
 
+  async function analyzeAudience() {
+    if (!eventId) return;
+    setInsightLoading(true);
+    setInsightError(null);
+    setInsight(null);
+    setInsightMeta(null);
+    try {
+      const res = await apiFetch<{
+        insight: AudienceInsights;
+        response_count: number;
+      }>(`/api/events/${eventId}/audience-insights`, { method: "POST" });
+      setInsight(res.insight);
+      setInsightMeta({ response_count: res.response_count });
+    } catch (e) {
+      setInsightError(
+        e instanceof Error ? e.message : "Could not analyze audience",
+      );
+    } finally {
+      setInsightLoading(false);
+    }
+  }
+
+  function clearInsight() {
+    setInsight(null);
+    setInsightMeta(null);
+    setInsightError(null);
+  }
+
   if (attendees.length === 0) {
     return (
       <EmptyState
@@ -46,7 +89,12 @@ export function ParticipantsList({ attendees }: { attendees: Attendee[] }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
+    <div
+      className={cn(
+        glassPanelClass,
+        "overflow-hidden shadow-[0_1px_2px_rgba(9,9,11,0.05)]",
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 p-4">
         <div className="relative max-w-xs flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
@@ -58,15 +106,86 @@ export function ParticipantsList({ attendees }: { attendees: Attendee[] }) {
             className="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
           />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          leftIcon={<Download className="h-3.5 w-3.5" />}
-          onClick={exportCsv}
-        >
-          Export CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {eventId ? (
+            <Button
+              variant="primary"
+              size="sm"
+              loading={insightLoading}
+              leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+              onClick={analyzeAudience}
+            >
+              Analyze audience
+            </Button>
+          ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<Download className="h-3.5 w-3.5" />}
+            onClick={exportCsv}
+          >
+            Export CSV
+          </Button>
+        </div>
       </div>
+
+      {(insightError || insight) && (
+        <div className="border-b border-zinc-100 px-4 py-4">
+          {insightError ? (
+            <p className="text-sm text-red-600">{insightError}</p>
+          ) : insight ? (
+            <div className="relative rounded-xl border border-sky-100 bg-gradient-to-br from-sky-50/80 to-white p-4 text-sm text-zinc-800 shadow-sm">
+              <button
+                type="button"
+                onClick={clearInsight}
+                className="absolute right-3 top-3 rounded-md p-1 text-zinc-400 transition-colors hover:bg-white/80 hover:text-zinc-700"
+                aria-label="Dismiss insights"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <p className="pr-8 text-xs font-semibold uppercase tracking-wider text-sky-800">
+                Smart attendee insights
+                {insightMeta ? (
+                  <span className="ml-2 font-normal normal-case text-zinc-500">
+                    · {insightMeta.response_count} form response
+                    {insightMeta.response_count === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+              </p>
+              <p className="mt-2 font-medium leading-relaxed text-zinc-900">
+                {insight.summary}
+              </p>
+              {insight.key_segments.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-zinc-500">
+                    Audience signals
+                  </p>
+                  <ul className="mt-1.5 list-disc space-y-1 pl-5 text-zinc-700">
+                    {insight.key_segments.map((line, i) => (
+                      <li key={`seg-${i}`}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {insight.content_recommendations.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-zinc-500">
+                    What to do next
+                  </p>
+                  <ul className="mt-1.5 list-disc space-y-1 pl-5 text-zinc-700">
+                    {insight.content_recommendations.map((line, i) => (
+                      <li key={`rec-${i}`}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {insight.caveats?.trim() ? (
+                <p className="mt-3 text-xs text-zinc-500">{insight.caveats}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">

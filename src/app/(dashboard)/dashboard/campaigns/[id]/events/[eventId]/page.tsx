@@ -176,7 +176,7 @@ export default function EventDetailPage() {
             title="Participants"
             description={`${attendees.length} registered`}
           >
-            <ParticipantsList attendees={attendees} />
+            <ParticipantsList attendees={attendees} eventId={event.id} />
           </Section>
 
           <Section

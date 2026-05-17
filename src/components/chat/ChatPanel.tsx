@@ -1,21 +1,34 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ExternalLink, Send, Sparkles, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { glassPanelClass } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 import { useDashboardChat, type ChatTurn } from "./dashboard-chat-context";
+
+type ChatApiResponse = {
+  role: "assistant";
+  content: string;
+  campaign_created?: { campaignId: string; dashboardUrl: string };
+};
 
 type Props = {
   variant?: "page" | "floating";
 };
 
 export function ChatPanel({ variant = "page" }: Props) {
-  const { messages, setMessages } = useDashboardChat();
+  const router = useRouter();
+  const { messages, setMessages, setDockOpen } = useDashboardChat();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdCampaign, setCreatedCampaign] = useState<{
+    campaignId: string;
+    dashboardUrl: string;
+  } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const compact = variant === "floating";
 
@@ -34,17 +47,17 @@ export function ChatPanel({ variant = "page" }: Props) {
     setLoading(true);
 
     try {
-      const res = await apiFetch<{ role: "assistant"; content: string }>(
-        "/api/chat",
-        {
-          method: "POST",
-          body: JSON.stringify({ messages: next }),
-        },
-      );
+      const res = await apiFetch<ChatApiResponse>("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ messages: next }),
+      });
       setMessages([
         ...next,
         { role: "assistant", content: res.content },
       ]);
+      if (res.campaign_created) {
+        setCreatedCampaign(res.campaign_created);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
       setMessages(next.slice(0, -1));
@@ -52,6 +65,13 @@ export function ChatPanel({ variant = "page" }: Props) {
       setLoading(false);
     }
   }, [input, loading, messages, setMessages]);
+
+  function openCreatedCampaign() {
+    if (!createdCampaign) return;
+    setDockOpen(false);
+    setCreatedCampaign(null);
+    router.push(createdCampaign.dashboardUrl);
+  }
 
   return (
     <div
@@ -93,8 +113,10 @@ export function ChatPanel({ variant = "page" }: Props) {
 
       <div
         className={cn(
-          "flex min-h-0 flex-1 flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm",
-          compact && "rounded-none border-0 shadow-none",
+          "flex min-h-0 flex-1 flex-col",
+          compact
+            ? "rounded-none border-0 bg-transparent shadow-none"
+            : glassPanelClass,
         )}
       >
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 md:p-6">
@@ -152,7 +174,7 @@ export function ChatPanel({ variant = "page" }: Props) {
         )}
 
         <form
-          className="flex gap-2 border-t border-zinc-100 p-3 md:p-4"
+          className="flex gap-2 border-t border-zinc-200/35 bg-white/30 p-3 backdrop-blur-sm md:p-4"
           onSubmit={(e) => {
             e.preventDefault();
             void send();
@@ -163,7 +185,7 @@ export function ChatPanel({ variant = "page" }: Props) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Message…"
-            className="min-w-0 flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
+            className="min-w-0 flex-1 rounded-xl border border-white/45 bg-white/45 px-4 py-2.5 text-sm outline-none backdrop-blur-md transition focus:border-violet-400/80 focus:bg-white/75 focus:ring-4 focus:ring-violet-100/80"
             disabled={loading}
             autoComplete="off"
           />
@@ -177,6 +199,69 @@ export function ChatPanel({ variant = "page" }: Props) {
           </Button>
         </form>
       </div>
+
+      {createdCampaign ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="campaign-created-title"
+        >
+          <div
+            className={cn(
+              glassPanelClass,
+              "w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200",
+            )}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreatedCampaign(null)}
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <h2
+              id="campaign-created-title"
+              className="mt-3 text-lg font-semibold text-zinc-950"
+            >
+              Campaign created
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              Your new campaign is in the dashboard. Open it to add details,
+              strategy, and event pages.
+            </p>
+            <p className="mt-3 font-mono text-[11px] text-zinc-400">
+              id={createdCampaign.campaignId}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="dark"
+                size="md"
+                className="flex-1 sm:flex-none"
+                leftIcon={<ExternalLink className="h-4 w-4" />}
+                onClick={openCreatedCampaign}
+              >
+                Open campaign
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={() => setCreatedCampaign(null)}
+              >
+                Stay in chat
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

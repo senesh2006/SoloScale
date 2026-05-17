@@ -39,3 +39,34 @@ export async function apiFetch<T>(
 
   return res.json() as Promise<T>;
 }
+
+/**
+ * Authenticated `fetch` that returns the raw `Response` (file downloads, blobs).
+ * Same Authorization / retry behavior as `apiFetch`; caller checks `res.ok`.
+ */
+export async function apiFetchResponse(
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const token = await getCurrentIdToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  let res = await fetch(path, { ...init, headers });
+
+  if (res.status === 401 && token) {
+    const fresh = await getCurrentIdToken(true);
+    if (fresh && fresh !== token) {
+      headers.set("Authorization", `Bearer ${fresh}`);
+      res = await fetch(path, { ...init, headers });
+    }
+  }
+
+  return res;
+}

@@ -9,9 +9,11 @@ import {
 import { getOwnedEvent } from "@/lib/firestore/queries";
 import { COLLECTIONS } from "@/lib/firestore/collections";
 import {
+  coerceReminderChannel,
   deleteReminder,
   updateReminder,
 } from "@/lib/firestore/reminders";
+import type { ReminderChannel } from "@/types/campaign";
 
 type Params = { params: Promise<{ id: string; reminderId: string }> };
 
@@ -66,10 +68,14 @@ export async function PATCH(request: Request, { params }: Params) {
     body?: string;
     enabled?: boolean;
     scheduled_for?: Date;
+    channel?: ReminderChannel;
   } = {};
   if (typeof body.subject === "string") patch.subject = body.subject;
   if (typeof body.body === "string") patch.body = body.body;
   if (typeof body.enabled === "boolean") patch.enabled = body.enabled;
+  if (body.channel !== undefined) {
+    patch.channel = coerceReminderChannel(body.channel);
+  }
   if (typeof body.scheduled_for === "string") {
     const d = new Date(body.scheduled_for);
     if (Number.isNaN(d.getTime())) {

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -12,6 +13,10 @@ import {
   Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** Unsplash: white clouds and blue sky (Ernest Karchmit) — https://unsplash.com/photos/WM6RChdy9YA */
+const HOME_HERO_BG =
+  "https://images.unsplash.com/photo-1627444025414-c2d18d30dbd2?auto=format&fit=max&w=2400&q=80";
 
 const features = [
   {
@@ -38,33 +43,54 @@ const features = [
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-white text-zinc-950">
-      {/* Animated aurora background */}
+    <div className="relative min-h-screen overflow-x-hidden text-zinc-950">
+      <div
+        className="pointer-events-none fixed inset-0 z-0 h-[100dvh] w-full"
+        aria-hidden
+      >
+        <Image
+          src={HOME_HERO_BG}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+      </div>
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-40 -z-10 flex justify-center"
+        className="pointer-events-none fixed inset-0 z-[1] h-[100dvh] w-full bg-gradient-to-b from-white/36 via-white/28 to-white/50"
+      />
+
+      {/* Soft aurora accent */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-40 z-[2] flex justify-center opacity-[0.38]"
       >
         <div className="aurora-blob h-[500px] w-[800px] rounded-full" />
       </div>
 
-      {/* Subtle dot grid */}
+      {/* Light dot grid */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-dots opacity-50"
+        className="pointer-events-none absolute inset-0 z-[2] bg-dots opacity-[0.22]"
       />
 
-      {/* Floating sparkles */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <Sparkles className="absolute left-[15%] top-[20%] h-4 w-4 text-violet-300 animate-float" style={{ animationDelay: "0s" }} />
-        <Sparkles className="absolute right-[20%] top-[35%] h-3 w-3 text-fuchsia-300 animate-float" style={{ animationDelay: "1.5s" }} />
-        <Sparkles className="absolute left-[60%] top-[15%] h-5 w-5 text-indigo-300 animate-float" style={{ animationDelay: "3s" }} />
-        <Sparkles className="absolute right-[10%] top-[60%] h-3 w-3 text-violet-300 animate-float" style={{ animationDelay: "2s" }} />
+      {/* Floating sparkles — sky tones */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-[2] overflow-hidden"
+      >
+        <Sparkles className="absolute left-[15%] top-[20%] h-4 w-4 text-sky-300 animate-float" style={{ animationDelay: "0s" }} />
+        <Sparkles className="absolute right-[20%] top-[35%] h-3 w-3 text-cyan-300 animate-float" style={{ animationDelay: "1.5s" }} />
+        <Sparkles className="absolute left-[60%] top-[15%] h-5 w-5 text-sky-400 animate-float" style={{ animationDelay: "3s" }} />
+        <Sparkles className="absolute right-[10%] top-[60%] h-3 w-3 text-blue-300 animate-float" style={{ animationDelay: "2s" }} />
       </div>
 
-      {/* Nav */}
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
+      <div className="relative z-10">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-sm shadow-violet-500/30">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sm shadow-sky-500/25">
             <span className="font-semibold">S</span>
           </div>
           <span className="text-lg font-semibold tracking-tight">SoloScale</span>
@@ -105,8 +131,8 @@ export default function Home() {
             className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-xs font-medium text-zinc-700 backdrop-blur transition-colors hover:border-zinc-300 animate-fade-up"
           >
             <span className="relative inline-flex h-1.5 w-1.5">
-              <span className="absolute inset-0 rounded-full bg-violet-600" />
-              <span className="absolute inset-0 rounded-full bg-violet-600 animate-ping-soft" />
+              <span className="absolute inset-0 rounded-full bg-sky-600" />
+              <span className="absolute inset-0 rounded-full bg-sky-600 animate-ping-soft" />
             </span>
             Now in beta · Gemini-powered strategy
             <ArrowRight className="h-3 w-3 text-zinc-400" />
@@ -147,7 +173,7 @@ export default function Home() {
 
         {/* Product mock */}
         <div className="relative mx-auto mt-20 max-w-5xl animate-fade-up stagger-5">
-          <div className="absolute -inset-4 -z-10 rounded-[2rem] bg-gradient-to-br from-violet-200/40 via-fuchsia-100/30 to-indigo-200/40 blur-2xl animate-aurora" />
+          <div className="absolute -inset-4 -z-10 rounded-[2rem] bg-gradient-to-br from-sky-200/50 via-blue-100/35 to-cyan-200/40 blur-2xl animate-aurora" />
           <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-zinc-900/10 ring-1 ring-zinc-900/5 transition-transform hover:-translate-y-1">
             {/* fake browser chrome */}
             <div className="flex items-center gap-2 border-b border-zinc-100 bg-zinc-50/80 px-4 py-3">
@@ -165,7 +191,7 @@ export default function Home() {
               {/* mini sidebar */}
               <div className="hidden border-r border-zinc-100 bg-zinc-50/40 p-4 md:block">
                 <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-md bg-gradient-to-br from-violet-500 to-indigo-600" />
+                  <div className="h-6 w-6 rounded-md bg-gradient-to-br from-sky-500 to-cyan-600" />
                   <span className="text-xs font-semibold">SoloScale</span>
                 </div>
                 <div className="mt-6 space-y-1">
@@ -174,7 +200,7 @@ export default function Home() {
                       key={l}
                       className={
                         i === 1
-                          ? "rounded-lg bg-violet-50 px-2.5 py-1.5 text-xs font-medium text-violet-700"
+                          ? "rounded-lg bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700"
                           : "px-2.5 py-1.5 text-xs text-zinc-500"
                       }
                     >
@@ -229,7 +255,7 @@ export default function Home() {
                   <div className="space-y-2.5">
                     {[
                       { type: "Tweet", color: "bg-sky-100 text-sky-700", text: "Hot take on RSC patterns" },
-                      { type: "LinkedIn", color: "bg-indigo-100 text-indigo-700", text: "Why solo devs win in 2026" },
+                      { type: "LinkedIn", color: "bg-blue-100 text-blue-700", text: "Why solo devs win in 2026" },
                       { type: "Email", color: "bg-amber-100 text-amber-700", text: "Reminder: 3 days to event" },
                     ].map((p) => (
                       <div key={p.type} className="flex items-center gap-3">
@@ -242,8 +268,8 @@ export default function Home() {
                           {p.type}
                         </span>
                         <p className="truncate text-xs text-zinc-700">{p.text}</p>
-                        <div className="ml-auto h-1 w-16 overflow-hidden rounded-full bg-zinc-100">
-                          <div className="h-full w-2/3 rounded-full bg-violet-500" />
+                          <div className="ml-auto h-1 w-16 overflow-hidden rounded-full bg-zinc-100">
+                          <div className="h-full w-2/3 rounded-full bg-sky-500" />
                         </div>
                       </div>
                     ))}
@@ -279,7 +305,7 @@ export default function Home() {
       {/* Features */}
       <section id="features" className="mx-auto max-w-7xl px-6 py-32 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold text-violet-600">Everything you need</p>
+          <p className="text-sm font-semibold text-sky-600">Everything you need</p>
           <h2 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
             One workflow, four AI agents
           </h2>
@@ -298,7 +324,7 @@ export default function Home() {
                 `stagger-${i}`,
               )}
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100 transition-all duration-300 group-hover:rotate-6 group-hover:bg-violet-100">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100/80 transition-all duration-300 group-hover:rotate-6 group-hover:bg-sky-100">
                 <f.icon className="h-5 w-5" />
               </div>
               <h3 className="mt-5 text-base font-semibold tracking-tight">
@@ -319,9 +345,9 @@ export default function Home() {
             aria-hidden
             className="pointer-events-none absolute inset-0 -z-0 opacity-60"
           >
-            <div className="absolute -left-32 top-0 h-64 w-64 rounded-full bg-violet-600/40 blur-3xl animate-float-slow" />
-            <div className="absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-indigo-500/40 blur-3xl animate-float-slow" style={{ animationDelay: "4s" }} />
-            <div className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-500/30 blur-3xl animate-pulse-soft" />
+            <div className="absolute -left-32 top-0 h-64 w-64 rounded-full bg-sky-500/35 blur-3xl animate-float-slow" />
+            <div className="absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-blue-500/35 blur-3xl animate-float-slow" style={{ animationDelay: "4s" }} />
+            <div className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/25 blur-3xl animate-pulse-soft" />
           </div>
           <div className="relative">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/80">
@@ -367,8 +393,17 @@ export default function Home() {
             <Zap className="h-3 w-3" />
             <span>Powered by Gemini · Firebase</span>
           </div>
+          <a
+            href="https://unsplash.com/photos/WM6RChdy9YA"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-400 hover:text-zinc-600"
+          >
+            Background photo by Ernest Karchmit on Unsplash
+          </a>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

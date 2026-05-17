@@ -1,9 +1,10 @@
-import type { Firestore, Timestamp } from "firebase-admin/firestore";
-import { FieldValue } from "firebase-admin/firestore";
+import type { Firestore } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { COLLECTIONS } from "@/lib/firestore/collections";
 import { snapshotToObject } from "@/lib/firestore/serialize";
 import type {
   EventReminder,
+  ReminderChannel,
   ReminderPresetId,
   ReminderStatus,
 } from "@/types/campaign";
@@ -19,11 +20,19 @@ export type EventReminderDocument = {
   body: string;
   status: ReminderStatus;
   enabled: boolean;
-  channel: "email" | "in_app";
+  channel: ReminderChannel;
   sent_at: Timestamp | null;
+  delivered_count?: number;
+  last_error?: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
+
+export function coerceReminderChannel(value: unknown): ReminderChannel {
+  if (value === "in_app") return "in_app";
+  if (value === "whatsapp") return "email";
+  return "email";
+}
 
 const PRESET_OFFSETS_MS: Record<Exclude<ReminderPresetId, "custom">, number> = {
   "7d": 7 * 86400000,
@@ -85,6 +94,33 @@ export async function listEventReminders(
     );
 }
 
+/** Due reminders for cron dispatch (email only; legacy `whatsapp` rows send as email). */
+export async function listDueOutboundReminders(
+  db: Firestore,
+  limit: number,
+): Promise<(EventReminderDocument & { id: string })[]> {
+  const now = Timestamp.now();
+  const snap = await db
+    .collection(COLLECTIONS.event_reminders)
+    .where("status", "==", "scheduled")
+    .where("enabled", "==", true)
+    .where("scheduled_for", "<=", now)
+    .orderBy("scheduled_for", "asc")
+    .limit(Math.min(Math.max(limit * 4, limit), 200))
+    .get();
+
+  const rows: (EventReminderDocument & { id: string })[] = [];
+  for (const d of snap.docs) {
+    const raw = d.data() as { channel?: string };
+    const c = String(raw.channel ?? "email");
+    if (c !== "email" && c !== "whatsapp") continue;
+    const data = d.data() as EventReminderDocument;
+    rows.push({ ...data, id: d.id, channel: "email" });
+    if (rows.length >= limit) break;
+  }
+  return rows;
+}
+
 /**
  * Upserts a preset reminder (`7d`, `24h`, `1h`) for an event. Idempotent on
  * `(event_id, preset_id)` — returns the resulting reminder, or null if the
@@ -101,6 +137,7 @@ export async function upsertPresetReminder(
     enabled: boolean;
     subject?: string;
     body?: string;
+    channel?: ReminderChannel;
   },
 ): Promise<EventReminder | null> {
   const scheduledMs =
@@ -119,6 +156,7 @@ export async function upsertPresetReminder(
     PRESET_DEFAULT_SUBJECT[args.presetId].replace("{event}", args.eventTitle);
   const body =
     args.body?.trim() || PRESET_DEFAULT_BODY[args.presetId];
+  const channel = args.channel ?? "email";
 
   if (existingSnap.empty) {
     if (!args.enabled) return null;
@@ -133,8 +171,10 @@ export async function upsertPresetReminder(
       body,
       status: "scheduled" satisfies ReminderStatus,
       enabled: true,
-      channel: "email",
+      channel,
       sent_at: null,
+      delivered_count: 0,
+      last_error: null,
       created_at: FieldValue.serverTimestamp(),
       updated_at: FieldValue.serverTimestamp(),
     });
@@ -153,6 +193,7 @@ export async function upsertPresetReminder(
     status: args.enabled ? "scheduled" : "cancelled",
     subject,
     body,
+    channel,
     scheduled_for: scheduledDate,
     updated_at: FieldValue.serverTimestamp(),
   });
@@ -175,8 +216,10 @@ export async function createCustomReminder(
     subject: string;
     body: string;
     label?: string;
+    channel?: ReminderChannel;
   },
 ): Promise<EventReminder> {
+  const channel = args.channel ?? "email";
   const ref = db.collection(COLLECTIONS.event_reminders).doc();
   await ref.set({
     event_id: args.eventId,
@@ -188,8 +231,10 @@ export async function createCustomReminder(
     body: args.body,
     status: "scheduled" satisfies ReminderStatus,
     enabled: true,
-    channel: "email",
+    channel,
     sent_at: null,
+    delivered_count: 0,
+    last_error: null,
     created_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
   });
@@ -210,6 +255,7 @@ export async function updateReminder(
     body?: string;
     enabled?: boolean;
     scheduled_for?: Date;
+    channel?: ReminderChannel;
   },
 ): Promise<EventReminder | null> {
   const ref = db.collection(COLLECTIONS.event_reminders).doc(reminderId);
@@ -227,6 +273,9 @@ export async function updateReminder(
   }
   if (patch.scheduled_for !== undefined) {
     update.scheduled_for = patch.scheduled_for;
+  }
+  if (patch.channel !== undefined) {
+    update.channel = patch.channel;
   }
 
   await ref.update(update);
@@ -264,8 +313,14 @@ function toEventReminder(
     body: String(data.body ?? ""),
     status: (data.status as EventReminder["status"]) ?? "scheduled",
     enabled: Boolean(data.enabled),
-    channel: (data.channel as EventReminder["channel"]) ?? "email",
+    channel: coerceReminderChannel(data.channel),
     sent_at:
       data.sent_at && data.sent_at !== null ? String(data.sent_at) : null,
+    delivered_count:
+      typeof data.delivered_count === "number" ? data.delivered_count : undefined,
+    last_error:
+      data.last_error === undefined || data.last_error === null
+        ? null
+        : String(data.last_error),
   };
 }

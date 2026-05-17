@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { MessageCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { glassPanelClass } from "@/components/ui/Card";
 import { useDashboardChat } from "./dashboard-chat-context";
 import { ChatPanel } from "./ChatPanel";
 
@@ -31,7 +32,8 @@ export function ChatFloatingDock() {
       {dockOpen ? (
         <div
           className={cn(
-            "fixed bottom-6 right-6 z-[60] flex w-[min(100vw-1.5rem,22rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200",
+            glassPanelClass,
+            "fixed bottom-6 right-6 z-[60] flex w-[min(100vw-1.5rem,22rem)] flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200",
             "max-h-[min(32rem,calc(100vh-5rem))]",
           )}
           role="dialog"
