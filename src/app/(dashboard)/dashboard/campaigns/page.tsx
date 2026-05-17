@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import type { Campaign, CampaignStatus } from "@/types/campaign";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -31,9 +32,35 @@ const progress: Record<CampaignStatus, { pct: string; color: string }> = {
 };
 
 export default function CampaignsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl space-y-8 py-10">
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="h-12 max-w-xl rounded-xl" />
+          <div className="grid gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <CampaignsPageContent />
+    </Suspense>
+  );
+}
+
+function CampaignsPageContent() {
+  const searchParams = useSearchParams();
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("q");
+    if (fromUrl) setQ(fromUrl);
+  }, [searchParams]);
 
   useEffect(() => {
     apiFetch<{ campaigns: Campaign[] }>("/api/campaigns")
@@ -46,7 +73,13 @@ export default function CampaignsPage() {
     return campaigns.filter((c) => {
       if (filter !== "all" && c.status !== filter) return false;
       const needle = q.trim().toLowerCase();
-      if (needle && !c.title.toLowerCase().includes(needle)) return false;
+      if (
+        needle &&
+        !c.title.toLowerCase().includes(needle) &&
+        !(c.goal_prompt?.toLowerCase().includes(needle) ?? false)
+      ) {
+        return false;
+      }
       return true;
     });
   }, [campaigns, filter, q]);

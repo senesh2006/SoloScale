@@ -178,6 +178,29 @@ body {
    Utility classes
    ===================================================== */
 
+/**
+ * Film grain overlay for translucent “glass” cards (used with glassPanelClass).
+ * ::before sits behind in-flow content; keep border-radius inherit for rounded cards.
+ */
+.glass-grain {
+  position: relative;
+  isolation: isolate;
+}
+
+.glass-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.34;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  background-repeat: repeat;
+}
+
 .animate-fade-in { animation: fade-in 0.4s ease-out both; }
 .animate-fade-up { animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .animate-pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }

@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { glassPanelClass } from "@/components/ui/Card";
 
 type Actions = {
   onAdd: (kind: AssetKind) => void;
@@ -58,7 +59,7 @@ export function AssetGenerationPanel({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {hasStrategy && actions.onGenerateFromStrategy ? (
         <StrategyAssetBar
           loading={loadingFromStrategy}
@@ -95,7 +96,12 @@ function StrategyAssetBar({
   onGenerate: (kind: AssetKind | "both") => void | Promise<void>;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white to-fuchsia-50/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className={cn(
+        glassPanelClass,
+        "flex flex-col gap-4 border-violet-200/40 bg-gradient-to-br from-violet-50/50 via-white/55 to-fuchsia-50/35 p-5 sm:flex-row sm:items-center sm:justify-between",
+      )}
+    >
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-sm">
           <Calendar className="h-4 w-4" />
@@ -158,8 +164,13 @@ function EmptyState({
   onAdd: (kind: AssetKind) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-200 bg-gradient-to-br from-zinc-50 to-white p-8 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-zinc-400 shadow-sm ring-1 ring-zinc-200">
+    <div
+      className={cn(
+        glassPanelClass,
+        "border-dashed border-zinc-300/50 bg-gradient-to-br from-white/45 to-white/25 p-8 text-center backdrop-blur-xl",
+      )}
+    >
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/55 text-zinc-400 shadow-sm ring-1 ring-white/55 backdrop-blur-sm">
         <Sparkles className="h-5 w-5" />
       </div>
       <p className="mt-3 text-sm font-semibold text-zinc-900">
@@ -237,14 +248,19 @@ function AssetGroup({
 }) {
   const Icon = kind === "flyer" ? ImageIcon : Music;
   return (
-    <section>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <section
+      className={cn(
+        glassPanelClass,
+        "space-y-5 p-5 sm:p-7 md:p-8 shadow-[0_4px_24px_rgba(9,9,11,0.06)]",
+      )}
+    >
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-violet-600" />
           <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
             {title}
           </h3>
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600">
+          <span className="rounded-full bg-white/55 px-2.5 py-0.5 text-[10px] font-semibold text-zinc-600 ring-1 ring-white/60 backdrop-blur-sm">
             {items.length}
           </span>
         </div>
@@ -271,7 +287,7 @@ function AssetGroup({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2">
         {items.map((asset, i) => (
           <div
             key={asset.id}
@@ -301,9 +317,12 @@ function AddTile({
   return (
     <button
       onClick={onClick}
-      className="group flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-zinc-200 bg-white p-6 text-center transition-all hover:-translate-y-px hover:border-violet-300 hover:bg-violet-50/40 hover:shadow-md"
+      className={cn(
+        glassPanelClass,
+        "group flex min-h-[18rem] w-full flex-col items-center justify-center gap-4 border-2 border-dashed border-white/55 bg-white/30 p-8 text-center backdrop-blur-xl transition-all hover:-translate-y-px hover:border-violet-400/45 hover:bg-white/45 hover:shadow-lg md:min-h-[20rem]",
+      )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-50 text-zinc-400 transition-colors group-hover:bg-violet-100 group-hover:text-violet-600">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/55 text-zinc-400 shadow-sm ring-1 ring-white/55 backdrop-blur-sm transition-colors group-hover:bg-violet-100/80 group-hover:text-violet-600">
         <Wand2 className="h-5 w-5" />
       </div>
       <div>
@@ -328,7 +347,7 @@ function CardHeader({
 }) {
   const ready = asset.status === "ready" && asset.url;
   return (
-    <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+    <div className="flex items-center justify-between border-b border-zinc-200/35 bg-white/25 px-4 py-3.5 backdrop-blur-md sm:px-5">
       <div className="min-w-0 flex-1">
         <h4 className="truncate text-sm font-semibold text-zinc-900">
           {asset.label ?? (asset.kind === "flyer" ? "Flyer" : "Voiceover")}
@@ -354,7 +373,7 @@ function CardHeader({
           <a
             href={asset.url!}
             download
-            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600"
+            className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-white/40 hover:text-violet-600"
             aria-label="Download"
             title="Download"
           >
@@ -394,7 +413,7 @@ function IconButton({
       aria-label={label}
       title={label}
       className={cn(
-        "rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 disabled:opacity-40",
+        "rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-white/40 disabled:opacity-40",
         danger ? "hover:text-red-600" : "hover:text-violet-600",
       )}
     >
@@ -414,23 +433,28 @@ function FlyerCard({
   const processing = asset.status === "processing";
 
   return (
-    <div className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
+    <div
+      className={cn(
+        glassPanelClass,
+        "flex flex-col overflow-hidden shadow-[0_2px_12px_rgba(9,9,11,0.08)] ring-1 ring-white/60",
+      )}
+    >
       <CardHeader asset={asset} actions={actions} />
-      <div className="relative aspect-[4/5] w-full bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-4">
+      <div className="relative flex min-h-[20rem] w-full flex-1 flex-col justify-center bg-gradient-to-b from-white/35 via-white/20 to-white/30 p-5 backdrop-blur-xl sm:min-h-[24rem] md:min-h-[26rem]">
         {ready ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={asset.url!}
             alt={asset.label ?? "Campaign flyer"}
-            className="h-full w-full rounded-lg object-cover shadow-lg ring-1 ring-black/5"
+            className="mx-auto max-h-[min(32rem,calc(100vh-14rem))] w-full rounded-xl object-contain shadow-lg ring-1 ring-black/10"
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+          <div className="flex min-h-[14rem] flex-1 flex-col items-center justify-center gap-3 text-center">
             <div
               className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-zinc-400 shadow-sm ring-1 ring-zinc-200",
+                "flex h-12 w-12 items-center justify-center rounded-2xl bg-white/55 text-zinc-500 shadow-sm ring-1 ring-white/55 backdrop-blur-sm",
                 processing &&
-                  "animate-pulse-soft bg-violet-50 text-violet-500 ring-violet-100",
+                  "animate-pulse-soft bg-violet-100/70 text-violet-600 ring-violet-200/60",
               )}
             >
               {processing ? (
@@ -503,12 +527,17 @@ function AudioCard({
   const progress = duration ? (current / duration) * 100 : 0;
 
   return (
-    <div className="group overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
+    <div
+      className={cn(
+        glassPanelClass,
+        "flex flex-col overflow-hidden shadow-[0_2px_12px_rgba(9,9,11,0.08)] ring-1 ring-white/60",
+      )}
+    >
       <CardHeader asset={asset} actions={actions} />
-      <div className="relative aspect-[4/5] w-full bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-5">
+      <div className="relative flex min-h-[20rem] w-full flex-1 flex-col justify-center bg-gradient-to-b from-white/35 via-white/20 to-white/30 p-6 backdrop-blur-xl sm:min-h-[24rem] md:min-h-[26rem]">
         {ready ? (
-          <div className="flex h-full flex-col items-center justify-center gap-5">
-            <div className="flex h-14 items-end gap-0.5">
+          <div className="flex min-h-[16rem] flex-1 flex-col items-center justify-center gap-6 py-2">
+            <div className="flex h-16 items-end gap-0.5 px-1">
               {Array.from({ length: 22 }).map((_, i) => {
                 const active = (i / 22) * 100 < progress;
                 const h = 18 + Math.abs(Math.sin(i * 0.7)) * 60;
@@ -518,7 +547,7 @@ function AudioCard({
                     style={{ height: `${h}%` }}
                     className={cn(
                       "w-0.5 rounded-full transition-colors",
-                      active ? "bg-violet-600" : "bg-zinc-200",
+                      active ? "bg-violet-600" : "bg-zinc-300/65",
                     )}
                   />
                 );
@@ -540,7 +569,7 @@ function AudioCard({
             <div className="w-full space-y-1.5">
               <div
                 onClick={seek}
-                className="h-1 w-full cursor-pointer rounded-full bg-zinc-200"
+                className="h-1 w-full cursor-pointer rounded-full bg-white/45 ring-1 ring-white/50 backdrop-blur-sm"
               >
                 <div
                   className="h-full rounded-full bg-violet-600 transition-all"
@@ -561,12 +590,12 @@ function AudioCard({
             />
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+          <div className="flex min-h-[14rem] flex-1 flex-col items-center justify-center gap-4 text-center">
             <div
               className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-zinc-400 shadow-sm ring-1 ring-zinc-200",
+                "flex h-12 w-12 items-center justify-center rounded-2xl bg-white/55 text-zinc-500 shadow-sm ring-1 ring-white/55 backdrop-blur-sm",
                 processing &&
-                  "animate-pulse-soft bg-violet-50 text-violet-500 ring-violet-100",
+                  "animate-pulse-soft bg-violet-100/70 text-violet-600 ring-violet-200/60",
               )}
             >
               {processing ? (

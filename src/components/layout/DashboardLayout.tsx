@@ -8,8 +8,6 @@ import {
   LayoutDashboard,
   Rocket,
   Calendar,
-  Search,
-  Bell,
   Menu,
   X,
   Plus,
@@ -25,6 +23,7 @@ import { CampaignNavTree } from "@/components/layout/CampaignNavTree";
 import { useAuth } from "@/lib/firebase/auth-context";
 import { DashboardChatProvider } from "@/components/chat/dashboard-chat-context";
 import { ChatFloatingDock } from "@/components/chat/ChatFloatingDock";
+import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
 
 type NavItem = {
   href: string;
@@ -202,39 +201,20 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="mt-auto p-3">
-          <div className="group relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-4">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-violet-300/30 blur-2xl animate-float-slow"
-            />
-            <p className="relative text-xs font-semibold text-violet-900">
-              Upgrade your plan
-            </p>
-            <p className="relative mt-1 text-xs text-violet-700/80">
-              Unlock unlimited campaigns and real-time AI.
-            </p>
-            <Link
-              href="/dashboard/billing"
-              className="relative mt-3 block overflow-hidden rounded-lg bg-violet-600 px-3 py-1.5 text-center text-xs font-semibold text-white shadow-sm transition-all hover:bg-violet-500 shine"
-            >
-              See plans
-            </Link>
-          </div>
-
-          <div className="mt-3 border-t border-zinc-100 pt-3">
+        <div className="mt-auto flex flex-col border-t border-[0.5px] border-[var(--border)]">
+          <div className="p-3">
             <button
               onClick={() => setUserMenuOpen((v) => !v)}
               className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-zinc-50"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-zinc-800 to-zinc-950 text-xs font-semibold text-white">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 text-xs font-medium text-white">
                 {displayName ? initials(displayName) : "?"}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-zinc-900">
                   {displayName || "Loading…"}
                 </p>
-                <p className="truncate text-xs text-zinc-500">{displayEmail}</p>
+                <p className="truncate text-xs font-normal text-zinc-500">{displayEmail}</p>
               </div>
               <ChevronDown
                 className={cn(
@@ -244,21 +224,36 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               />
             </button>
             {userMenuOpen && (
-              <div className="mt-1 space-y-0.5 rounded-xl border border-zinc-100 bg-white p-1 shadow-sm">
-                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">
+              <div className="mt-1 space-y-0.5 rounded-xl border border-[0.5px] border-[var(--border)] bg-white p-1">
+                <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-normal text-zinc-700 hover:bg-zinc-50">
                   <Settings className="h-4 w-4 text-zinc-400" />
                   Settings
                 </button>
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-normal text-red-600 hover:bg-red-50"
                 >
                   <LogOut className="h-4 w-4" />
                   Log out
                 </button>
               </div>
             )}
+          </div>
+
+          <div className="border-t border-[0.5px] border-[var(--border)] bg-[var(--surface-muted)] p-3">
+            <p className="text-[11px] font-medium tracking-wide text-zinc-500">
+              Upgrade your plan
+            </p>
+            <p className="mt-1 text-[11px] font-normal leading-relaxed text-zinc-500">
+              Unlock unlimited campaigns and real-time AI.
+            </p>
+            <Link
+              href="/dashboard/billing"
+              className="mt-3 block rounded-lg bg-zinc-900 px-3 py-2 text-center text-xs font-medium text-white transition-colors hover:bg-zinc-800"
+            >
+              See plans
+            </Link>
           </div>
         </div>
       </aside>
@@ -275,38 +270,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       {/* Main area */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-zinc-200/80 bg-white/80 px-4 backdrop-blur-md sm:px-8">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-
-          <div className="relative max-w-md flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="search"
-              placeholder="Search campaigns, attendees, posts..."
-              className="h-9 w-full rounded-xl border border-transparent bg-zinc-100 pl-9 pr-16 text-sm text-zinc-900 placeholder:text-zinc-400 transition-all hover:bg-zinc-50 focus:border-violet-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
-            />
-            <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">
-              ⌘K
-            </kbd>
-          </div>
-
-          <button
-            className="relative rounded-lg p-2 text-zinc-600 hover:bg-zinc-100"
-            aria-label="Notifications"
-          >
-            <Bell className="h-[18px] w-[18px]" />
-            <span className="absolute right-1.5 top-1.5 inline-flex h-2 w-2">
-              <span className="absolute inset-0 rounded-full bg-violet-600 ring-2 ring-white" />
-              <span className="absolute inset-0 rounded-full bg-violet-500 animate-ping-soft" />
-            </span>
-          </button>
-        </header>
+        <DashboardTopBar onOpenMobileMenu={() => setMobileOpen(true)} />
 
         <main className="px-4 py-8 sm:px-8 lg:px-10 lg:py-10">{children}</main>
       </div>

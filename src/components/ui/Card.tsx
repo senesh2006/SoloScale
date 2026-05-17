@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 /** Frosted glass panel for dashboard / campaign views (reads well over imagery). */
 export const glassPanelClass =
-  "rounded-2xl border border-white/50 bg-white/65 shadow-[0_1px_3px_rgba(9,9,11,0.08)] backdrop-blur-xl backdrop-saturate-150";
+  "glass-grain rounded-2xl border border-white/34 bg-white/34 shadow-[0_1px_3px_rgba(9,9,11,0.07)] backdrop-blur-xl backdrop-saturate-150";
 
 export function Card({
   className,
