@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { ArrowRight, Mail, Lock, Phone } from "lucide-react";
 import { AuthShell } from "@/components/layout/AuthShell";
 import { Button } from "@/components/ui/Button";
@@ -13,6 +13,26 @@ import { useAuth } from "@/lib/firebase/auth-context";
 type Mode = "email" | "google" | "phone";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <AuthShell
+      title="Welcome back"
+      subtitle="Log in to your AI marketing workspace."
+      footer={null}
+    >
+      <div className="h-40 animate-pulse rounded-xl bg-zinc-100" aria-hidden />
+    </AuthShell>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/dashboard";
