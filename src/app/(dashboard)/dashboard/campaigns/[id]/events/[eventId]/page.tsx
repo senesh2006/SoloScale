@@ -15,10 +15,12 @@ import {
   Mail,
   Share2,
   Ticket,
+  Palette,
 } from "lucide-react";
 import { ParticipantsList } from "@/components/campaign/ParticipantsList";
 import { AttendeeCommunicationsPanel } from "@/components/campaign/AttendeeCommunicationsPanel";
 import { ShareLinksPanel } from "@/components/campaign/ShareLinksPanel";
+import { TicketDesignPanel } from "@/components/event/TicketDesignPanel";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -311,6 +313,14 @@ export default function EventDetailPage() {
               </form>
             </Card>
             <ParticipantsList attendees={attendees} eventId={event.id} />
+          </Section>
+
+          <Section
+            icon={<Palette className="h-4 w-4" />}
+            title="Ticket design"
+            description="Colors, layout, and header style for registration tickets"
+          >
+            <TicketDesignPanel event={event} onSaved={setEvent} />
           </Section>
 
           <Section

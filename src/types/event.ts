@@ -1,4 +1,5 @@
 import type { Timestamp } from "firebase/firestore";
+import type { TicketDesign } from "@/types/ticket-design";
 import type {
   EventMedia,
   EventPrice,
@@ -26,6 +27,8 @@ export type EventDocument = {
   price: EventPrice | null;
   created_at: Timestamp;
   updated_at: Timestamp;
+  /** Optional visual theme for registration tickets (PNG / `/t/[code]`). */
+  ticket_design?: TicketDesign;
 };
 
 /** API / mock serialized event. */
@@ -46,6 +49,7 @@ export type Event = {
   location?: string | null;
   created_at?: string;
   updated_at?: string;
+  ticket_design?: TicketDesign;
 };
 
 export type EventWithId = Event;

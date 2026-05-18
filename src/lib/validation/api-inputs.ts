@@ -27,6 +27,33 @@ export const eventPriceSchema = z.object({
   currency: z.enum(["USD", "EUR", "GBP", "INR", "LKR"]),
 });
 
+const ticketHexColor = z
+  .string()
+  .regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, "Use #RGB or #RRGGBB");
+
+export const ticketDesignSchema = z.object({
+  header_style: z.enum(["gradient", "solid"]),
+  header_gradient_angle: z.number().min(0).max(360),
+  header_color_start: ticketHexColor,
+  header_color_mid: ticketHexColor.nullable(),
+  header_color_end: ticketHexColor,
+  header_text_color: ticketHexColor,
+  header_text_align: z.enum(["left", "center", "right"]),
+  header_padding_px: z.number().int().min(8).max(48),
+  body_background: ticketHexColor,
+  body_text_color: ticketHexColor,
+  muted_text_color: ticketHexColor,
+  label_text_color: ticketHexColor,
+  qr_position: z.enum(["left", "right"]),
+  accent_color: ticketHexColor,
+  border_color: ticketHexColor,
+  show_perforation: z.boolean(),
+});
+
+export const updateEventTicketDesignBodySchema = z.object({
+  ticket_design: ticketDesignSchema,
+});
+
 export const sponsorSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),

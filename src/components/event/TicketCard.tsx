@@ -3,6 +3,11 @@
 import { useRef, useState } from "react";
 import { Calendar, MapPin, Ticket as TicketIcon, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  buildHeaderBackground,
+  resolveTicketDesign,
+  type TicketDesign,
+} from "@/types/ticket-design";
 
 type Props = {
   attendee: { name: string; email: string; ticket_code?: string };
@@ -11,6 +16,7 @@ type Props = {
     event_date?: string | null;
     location?: string | null;
     slug: string;
+    ticket_design?: Partial<TicketDesign> | null;
   };
   className?: string;
 };
@@ -18,13 +24,13 @@ type Props = {
 export function TicketCard({ attendee, event, className }: Props) {
   const ticketRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
+  const d = resolveTicketDesign(event.ticket_design);
   const code = attendee.ticket_code ?? "PENDING";
   const hasTicketCode = Boolean(attendee.ticket_code);
   const ticketUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/t/${encodeURIComponent(code)}`
       : `/t/${encodeURIComponent(code)}`;
-  /** Same-origin image so html2canvas can export without CORS taint. */
   const qrUrl = hasTicketCode ? `/api/tickets/${encodeURIComponent(code)}/qr` : "";
 
   const dateLabel = event.event_date
@@ -52,7 +58,6 @@ export function TicketCard({ attendee, event, className }: Props) {
         }
       }),
     );
-    // Let layout/fonts settle after decode
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   }
 
@@ -91,7 +96,7 @@ export function TicketCard({ attendee, event, className }: Props) {
         blob = await toBlob(el, {
           cacheBust: true,
           pixelRatio: 2,
-          backgroundColor: "#ffffff",
+          backgroundColor: d.body_background,
         });
       } catch {
         blob = null;
@@ -103,7 +108,7 @@ export function TicketCard({ attendee, event, className }: Props) {
           scale: 2,
           useCORS: true,
           allowTaint: false,
-          backgroundColor: "#ffffff",
+          backgroundColor: d.body_background,
           logging: false,
           imageTimeout: 20000,
           foreignObjectRendering: true,
@@ -131,64 +136,140 @@ export function TicketCard({ attendee, event, className }: Props) {
     }
   }
 
+  const headerBg = buildHeaderBackground(d);
+
   return (
     <div className={cn("space-y-3", className)}>
       <div
         ref={ticketRef}
-        className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl"
+        className="overflow-hidden rounded-3xl border shadow-2xl"
+        style={{
+          backgroundColor: d.body_background,
+          borderColor: d.border_color,
+        }}
       >
-        <div className="bg-gradient-to-br from-violet-600 via-fuchsia-600 to-rose-500 p-5 text-white">
-          <div className="flex items-center justify-between">
+        <div
+          className="p-5"
+          style={{
+            background: headerBg,
+            color: d.header_text_color,
+            paddingLeft: d.header_padding_px,
+            paddingRight: d.header_padding_px,
+            paddingTop: d.header_padding_px,
+            paddingBottom: d.header_padding_px,
+          }}
+        >
+          <div
+            className={cn(
+              "flex w-full flex-wrap items-center gap-3",
+              d.header_text_align === "left" && "justify-between",
+              d.header_text_align === "center" && "justify-center",
+              d.header_text_align === "right" && "justify-end",
+            )}
+          >
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest opacity-90">
-              <TicketIcon className="h-3.5 w-3.5" />
+              <TicketIcon className="h-3.5 w-3.5 shrink-0" />
               Admit one
             </div>
-            <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest">
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+              style={{ backgroundColor: "rgba(255,255,255,0.25)" }}
+            >
               confirmed
             </span>
           </div>
-          <h3 className="mt-3 text-xl font-bold leading-tight">
+          <h3
+            className={cn(
+              "mt-3 text-xl font-bold leading-tight",
+              d.header_text_align === "center" && "text-center",
+              d.header_text_align === "right" && "text-right",
+            )}
+          >
             {event.landing.headline}
           </h3>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          <div
+            className={cn(
+              "mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-95",
+              d.header_text_align === "center" && "justify-center",
+              d.header_text_align === "right" && "justify-end",
+            )}
+          >
             <span className="inline-flex items-center gap-1.5">
-              <Calendar className="h-3 w-3" />
+              <Calendar className="h-3 w-3 shrink-0" />
               {dateLabel}
             </span>
             {event.location && (
               <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-3 w-3" />
+                <MapPin className="h-3 w-3 shrink-0" />
                 {event.location}
               </span>
             )}
           </div>
         </div>
 
-        <div className="relative">
-          <div className="absolute -left-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-zinc-50" />
-          <div className="absolute -right-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-zinc-50" />
-          <div className="border-b border-dashed border-zinc-200" />
-        </div>
+        {d.show_perforation ? (
+          <div className="relative">
+            <div
+              className="absolute -left-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full"
+              style={{ backgroundColor: d.body_background }}
+            />
+            <div
+              className="absolute -right-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full"
+              style={{ backgroundColor: d.body_background }}
+            />
+            <div
+              className="border-b border-dashed"
+              style={{ borderColor: d.border_color }}
+            />
+          </div>
+        ) : (
+          <div className="h-px" style={{ backgroundColor: d.border_color }} />
+        )}
 
-        <div className="grid gap-4 p-5 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+        <div
+          className={cn(
+            "flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between",
+            d.qr_position === "left" && "sm:flex-row-reverse",
+          )}
+        >
+          <div className="min-w-0 flex-1">
+            <p
+              className="text-[10px] font-black uppercase tracking-widest"
+              style={{ color: d.label_text_color }}
+            >
               Attendee
             </p>
-            <p className="mt-1 text-base font-bold text-zinc-950">
+            <p
+              className="mt-1 text-base font-bold"
+              style={{ color: d.body_text_color }}
+            >
               {attendee.name}
             </p>
-            <p className="text-xs text-zinc-500">{attendee.email}</p>
+            <p className="text-xs" style={{ color: d.muted_text_color }}>
+              {attendee.email}
+            </p>
 
-            <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+            <p
+              className="mt-4 text-[10px] font-black uppercase tracking-widest"
+              style={{ color: d.label_text_color }}
+            >
               Ticket code
             </p>
-            <p className="mt-1 font-mono text-sm font-bold tracking-wider text-zinc-950">
+            <p
+              className="mt-1 font-mono text-sm font-bold tracking-wider"
+              style={{ color: d.body_text_color }}
+            >
               {code}
             </p>
           </div>
 
-          <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-xl border border-zinc-100 bg-white p-2 shadow-sm">
+          <div
+            className="flex h-32 w-32 shrink-0 items-center justify-center rounded-xl border bg-white p-2 shadow-sm"
+            style={{
+              borderColor: d.border_color,
+              backgroundColor: d.body_background,
+            }}
+          >
             {qrUrl ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -199,7 +280,10 @@ export function TicketCard({ attendee, event, className }: Props) {
                 />
               </>
             ) : (
-              <span className="px-2 text-center text-[10px] font-medium text-zinc-400">
+              <span
+                className="px-2 text-center text-[10px] font-medium"
+                style={{ color: d.muted_text_color }}
+              >
                 Code pending
               </span>
             )}
@@ -213,6 +297,7 @@ export function TicketCard({ attendee, event, className }: Props) {
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50"
+          style={{ borderColor: d.border_color, color: d.accent_color }}
         >
           <TicketIcon className="h-3.5 w-3.5" />
           View ticket
