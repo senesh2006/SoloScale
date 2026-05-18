@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  TICKET_IMAGE_URL_MAX_LEN,
+  isValidTicketHeaderImageRef,
+  normalizeTicketHeaderImageUrl,
+} from "@/lib/tickets/header-image-url";
 
 const formFieldTypes = [
   "text",
@@ -41,32 +46,23 @@ const ticketHexColor = z.preprocess(
     .regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, "Use #RGB or #RRGGBB"),
 );
 
-function isValidHttpImageUrl(s: string): boolean {
-  try {
-    const u = new URL(s);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-/** Signed storage / CDN URLs are often very long; cap under Firestore ~1 MiB doc size. */
-const TICKET_IMAGE_URL_MAX_LEN = 300_000;
-
 const ticketHeaderImageUrl = z.preprocess(
   (v) => {
     if (v == null || v === "") return null;
-    if (typeof v === "string") {
-      const t = v.trim();
-      return t === "" ? null : t;
-    }
-    return v;
+    if (typeof v !== "string") return v;
+    const t = v.trim();
+    if (t === "") return null;
+    return normalizeTicketHeaderImageUrl(t);
   },
   z.union([
     z.null(),
-    z.string().max(TICKET_IMAGE_URL_MAX_LEN).refine((s) => isValidHttpImageUrl(s), {
-      message: "Use a valid http(s) image URL",
-    }),
+    z
+      .string()
+      .max(TICKET_IMAGE_URL_MAX_LEN)
+      .refine((s) => isValidTicketHeaderImageRef(s), {
+        message:
+          "Use https URL, //…, site path /…, or domain/path (e.g. cdn.example.com/x.jpg)",
+      }),
   ]),
 );
 

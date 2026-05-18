@@ -1,3 +1,5 @@
+import { normalizeTicketHeaderImageUrl } from "@/lib/tickets/header-image-url";
+
 /**
  * Visual settings for downloadable / on-screen tickets (per event).
  * Stored on `events/{id}.ticket_design`.
@@ -11,8 +13,8 @@ export type TicketDesign = {
   header_color_mid: string | null;
   header_color_end: string;
   /**
-   * Full-bleed header background image (https URL). When set, replaces
-   * gradient/solid colors for the header band only.
+   * Header background image: https URL, protocol-relative //…, site path /…,
+   * or bare host/path (normalized on save).
    */
   header_background_image_url: string | null;
   /**
@@ -122,7 +124,8 @@ export function resolveTicketDesign(
   }
   if (typeof patch.header_background_image_url === "string") {
     const t = patch.header_background_image_url.trim();
-    patch.header_background_image_url = t === "" ? null : t;
+    patch.header_background_image_url =
+      t === "" ? null : normalizeTicketHeaderImageUrl(t);
   }
   return { ...DEFAULT_TICKET_DESIGN, ...patch };
 }

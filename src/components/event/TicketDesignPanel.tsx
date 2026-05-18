@@ -14,6 +14,7 @@ import {
   resolveTicketDesign,
   type TicketDesign,
 } from "@/types/ticket-design";
+import { normalizeTicketHeaderImageUrl } from "@/lib/tickets/header-image-url";
 
 const PREVIEW_ATTENDEE = {
   name: "Jordan Lee",
@@ -153,14 +154,17 @@ export function TicketDesignPanel({ event, onSaved }: Props) {
           </p>
           <p className="mt-1 text-xs text-zinc-500">
             Optional. Fills the top band of the ticket instead of the
-            gradient/solid colors. Paste a direct link (must be{" "}
-            <span className="font-mono">https://</span>) or upload a file.
+            gradient/solid colors. Paste a full link (
+            <span className="font-mono">https://…</span>,{" "}
+            <span className="font-mono">//…</span>), a site path (
+            <span className="font-mono">/images/…</span>), a host/path (
+            <span className="font-mono">cdn.example.com/…</span>), or upload.
             Hosts that block hotlinking may not show in previews or downloads.
           </p>
           <input
-            type="url"
+            type="text"
             className="mt-3 h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400"
-            placeholder="https://example.com/photo.jpg"
+            placeholder="https://…, //…, /path/image.jpg, or cdn.site.com/…"
             value={draft.header_background_image_url ?? ""}
             onChange={(e) => {
               const v = e.target.value;
@@ -173,7 +177,8 @@ export function TicketDesignPanel({ event, onSaved }: Props) {
               const v = e.target.value.trim();
               setDraft((d) => ({
                 ...d,
-                header_background_image_url: v === "" ? null : v,
+                header_background_image_url:
+                  v === "" ? null : normalizeTicketHeaderImageUrl(v),
               }));
             }}
           />
