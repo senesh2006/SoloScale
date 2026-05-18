@@ -277,10 +277,12 @@ export default function PublicEventPage() {
                         You're in!
                       </h3>
                       <p className="mt-1 text-xs text-zinc-500">
-                        Confirmation + ticket sent to{" "}
+                        Use <span className="font-medium text-zinc-700">Download ticket</span> below
+                        for a PNG with QR. Confirmation also went to{" "}
                         <span className="font-medium text-violet-700">
                           {email}
                         </span>
+                        .
                       </p>
                     </div>
 

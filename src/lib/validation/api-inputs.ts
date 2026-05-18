@@ -142,6 +142,15 @@ export const createAttendeeSchema = z.object({
   metadata: z.record(z.string(), z.string()).optional(),
 });
 
+/** Body for `POST /api/events/[id]/tickets` — event id comes from the URL. */
+export const createOrganizerTicketSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  note: z.string().max(500).optional(),
+  /** Complimentary or manually recorded payment (no Stripe charge). */
+  mark_paid: z.boolean().optional().default(false),
+});
+
 /* -------------------- FORM RESPONSES -------------------- */
 export const formResponseAnswerSchema = z.object({
   field_id: z.string().min(1),

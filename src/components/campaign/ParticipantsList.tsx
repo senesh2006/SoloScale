@@ -32,14 +32,18 @@ export function ParticipantsList({ attendees, eventId }: Props) {
     return attendees.filter(
       (a) =>
         a.name.toLowerCase().includes(needle) ||
-        a.email.toLowerCase().includes(needle),
+        a.email.toLowerCase().includes(needle) ||
+        (a.ticket_code?.toLowerCase().includes(needle) ?? false),
     );
   }, [attendees, q]);
 
   function exportCsv() {
-    const header = "name,email,registered_at\n";
+    const header = "name,email,ticket_code,registered_at\n";
     const rows = attendees
-      .map((a) => `"${a.name}","${a.email}","${a.created_at}"`)
+      .map(
+        (a) =>
+          `"${a.name}","${a.email}","${a.ticket_code ?? ""}","${a.created_at}"`,
+      )
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -197,6 +201,9 @@ export function ParticipantsList({ attendees, eventId }: Props) {
               <th className="px-5 py-3 text-xs font-medium text-zinc-500">
                 Email
               </th>
+              <th className="px-5 py-3 text-xs font-medium text-zinc-500">
+                Ticket
+              </th>
               <th className="px-5 py-3 text-right text-xs font-medium text-zinc-500">
                 Registered
               </th>
@@ -222,6 +229,9 @@ export function ParticipantsList({ attendees, eventId }: Props) {
                     {a.email}
                   </a>
                 </td>
+                <td className="px-5 py-3 font-mono text-xs text-zinc-600">
+                  {a.ticket_code ?? "—"}
+                </td>
                 <td
                   className="px-5 py-3 text-right text-zinc-500"
                   title={format(new Date(a.created_at), "PPpp")}
@@ -233,7 +243,7 @@ export function ParticipantsList({ attendees, eventId }: Props) {
             {filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={3}
+                  colSpan={4}
                   className="px-5 py-10 text-center text-sm text-zinc-500"
                 >
                   No matches for "{q}"

@@ -17,15 +17,15 @@ type Props = {
 
 export function TicketCard({ attendee, event, className }: Props) {
   const ticketRef = useRef<HTMLDivElement>(null);
-  const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const code = attendee.ticket_code ?? "PENDING";
+  const hasTicketCode = Boolean(attendee.ticket_code);
   const ticketUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/t/${code}`
-      : `/t/${code}`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodeURIComponent(
-    ticketUrl,
-  )}`;
+      ? `${window.location.origin}/t/${encodeURIComponent(code)}`
+      : `/t/${encodeURIComponent(code)}`;
+  /** Same-origin image so html2canvas can export without CORS taint. */
+  const qrUrl = hasTicketCode ? `/api/tickets/${encodeURIComponent(code)}/qr` : "";
 
   const dateLabel = event.event_date
     ? new Date(event.event_date).toLocaleString(undefined, {
@@ -37,26 +37,79 @@ export function TicketCard({ attendee, event, className }: Props) {
       })
     : "Date TBA";
 
-  async function saveTicket() {
+  async function waitForImagesInTicket(root: HTMLElement) {
+    const imgs = [...root.querySelectorAll("img")];
+    await Promise.all(
+      imgs.map(async (img) => {
+        if (img.complete && img.naturalHeight > 0) return;
+        await new Promise<void>((resolve) => {
+          const done = () => resolve();
+          img.addEventListener("load", done, { once: true });
+          img.addEventListener("error", done, { once: true });
+        });
+        if (img.decode) {
+          await img.decode().catch(() => undefined);
+        }
+      }),
+    );
+    // Let layout/fonts settle after decode
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
+
+  function saveBlobAsFile(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadQrOnlyPng() {
+    const res = await fetch(
+      `/api/tickets/${encodeURIComponent(code)}/qr?attachment=1`,
+    );
+    if (!res.ok) throw new Error("qr");
+    const blob = await res.blob();
+    saveBlobAsFile(blob, `ticket-${code}-qr.png`);
+  }
+
+  async function downloadTicketPng() {
     const el = ticketRef.current;
-    if (!el || saving) return;
-    setSaving(true);
+    if (!el || downloading || !hasTicketCode) return;
+    setDownloading(true);
     try {
+      await waitForImagesInTicket(el);
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(el, {
         scale: 2,
         useCORS: true,
+        allowTaint: false,
         backgroundColor: "#ffffff",
         logging: false,
+        imageTimeout: 20000,
       });
-      const link = document.createElement("a");
-      link.download = `ticket-${code}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), "image/png", 1);
+      });
+      if (blob && blob.size > 0) {
+        saveBlobAsFile(blob, `ticket-${code}.png`);
+      } else {
+        throw new Error("empty canvas blob");
+      }
     } catch {
-      window.open(ticketUrl, "_blank");
+      try {
+        await downloadQrOnlyPng();
+      } catch {
+        alert(
+          "Could not save the ticket image. Wait until the QR code is visible, then try again.",
+        );
+      }
     } finally {
-      setSaving(false);
+      setDownloading(false);
     }
   }
 
@@ -118,13 +171,20 @@ export function TicketCard({ attendee, event, className }: Props) {
           </div>
 
           <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-xl border border-zinc-100 bg-white p-2 shadow-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={qrUrl}
-              alt={`QR code for ticket ${code}`}
-              crossOrigin="anonymous"
-              className="h-full w-full"
-            />
+            {qrUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrUrl}
+                  alt={`QR code for ticket ${code}`}
+                  className="h-full w-full object-contain"
+                />
+              </>
+            ) : (
+              <span className="px-2 text-center text-[10px] font-medium text-zinc-400">
+                Code pending
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -141,12 +201,19 @@ export function TicketCard({ attendee, event, className }: Props) {
         </a>
         <button
           type="button"
-          onClick={saveTicket}
-          disabled={saving}
+          onClick={downloadTicketPng}
+          disabled={downloading || !hasTicketCode}
+          aria-label="Download ticket as PNG image"
           className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-950 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-60"
         >
-          <Download className={cn("h-3.5 w-3.5", saving && "animate-pulse")} />
-          {saving ? "Saving…" : "Save ticket"}
+          <Download
+            className={cn("h-3.5 w-3.5", downloading && "animate-pulse")}
+          />
+          {downloading
+            ? "Downloading…"
+            : hasTicketCode
+              ? "Download ticket"
+              : "Download unavailable"}
         </button>
       </div>
     </div>

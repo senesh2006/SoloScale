@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   ChevronLeft,
   Globe,
@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Mail,
   Share2,
+  Ticket,
 } from "lucide-react";
 import { ParticipantsList } from "@/components/campaign/ParticipantsList";
 import { AttendeeCommunicationsPanel } from "@/components/campaign/AttendeeCommunicationsPanel";
@@ -39,6 +40,16 @@ export default function EventDetailPage() {
   const [publishing, setPublishing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [ticketName, setTicketName] = useState("");
+  const [ticketEmail, setTicketEmail] = useState("");
+  const [ticketNote, setTicketNote] = useState("");
+  const [ticketMarkPaid, setTicketMarkPaid] = useState(false);
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [ticketBanner, setTicketBanner] = useState<{
+    type: "ok" | "err";
+    msg: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -90,6 +101,46 @@ export default function EventDetailPage() {
     navigator.clipboard.writeText(`${window.location.origin}/e/${event.slug}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function issueTicket(form: FormEvent<HTMLFormElement>) {
+    form.preventDefault();
+    if (!ticketName.trim() || !ticketEmail.trim()) return;
+    setTicketSubmitting(true);
+    setTicketBanner(null);
+    try {
+      const res = await apiFetch<{
+        attendee: Attendee;
+        reused: boolean;
+      }>(`/api/events/${eventId}/tickets`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: ticketName.trim(),
+          email: ticketEmail.trim(),
+          note: ticketNote.trim() || undefined,
+          mark_paid: ticketMarkPaid,
+        }),
+      });
+      const code = res.attendee.ticket_code ?? "—";
+      setTicketBanner({
+        type: "ok",
+        msg: res.reused
+          ? `Already registered — updated. Ticket: ${code}`
+          : `Ticket issued: ${code}`,
+      });
+      setTicketName("");
+      setTicketEmail("");
+      setTicketNote("");
+      setTicketMarkPaid(false);
+      await load();
+    } catch (err) {
+      setTicketBanner({
+        type: "err",
+        msg: err instanceof Error ? err.message : "Could not issue ticket",
+      });
+    } finally {
+      setTicketSubmitting(false);
+    }
   }
 
   if (error) {
@@ -176,6 +227,89 @@ export default function EventDetailPage() {
             title="Participants"
             description={`${attendees.length} registered`}
           >
+            <Card className="p-5">
+              <div className="mb-4 flex items-center gap-2 text-sm font-medium text-zinc-900">
+                <Ticket className="h-4 w-4 text-violet-600" />
+                Issue ticket
+              </div>
+              <p className="mb-4 text-xs text-zinc-500">
+                Add a participant with a ticket code without going through the
+                public checkout. Same email on this event updates the existing
+                row.
+              </p>
+              {ticketBanner ? (
+                <p
+                  className={cn(
+                    "mb-4 rounded-lg px-3 py-2 text-sm",
+                    ticketBanner.type === "ok"
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "bg-red-50 text-red-700",
+                  )}
+                >
+                  {ticketBanner.msg}
+                </p>
+              ) : null}
+              <form
+                onSubmit={issueTicket}
+                className="grid gap-3 sm:grid-cols-2 sm:gap-x-4"
+              >
+                <div className="sm:col-span-1">
+                  <label className="mb-1 block text-xs font-medium text-zinc-500">
+                    Name
+                  </label>
+                  <input
+                    required
+                    value={ticketName}
+                    onChange={(e) => setTicketName(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                    placeholder="Attendee name"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="mb-1 block text-xs font-medium text-zinc-500">
+                    Email
+                  </label>
+                  <input
+                    required
+                    type="email"
+                    value={ticketEmail}
+                    onChange={(e) => setTicketEmail(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                    placeholder="name@example.com"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-medium text-zinc-500">
+                    Note (optional)
+                  </label>
+                  <input
+                    value={ticketNote}
+                    onChange={(e) => setTicketNote(e.target.value)}
+                    maxLength={500}
+                    className="h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                    placeholder="Comp, VIP, table 4…"
+                  />
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={ticketMarkPaid}
+                    onChange={(e) => setTicketMarkPaid(e.target.checked)}
+                    className="rounded border-zinc-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  Mark as paid (complimentary or payment recorded elsewhere)
+                </label>
+                <div className="sm:col-span-2">
+                  <Button
+                    type="submit"
+                    loading={ticketSubmitting}
+                    leftIcon={<Ticket className="h-4 w-4" />}
+                  >
+                    Create ticket
+                  </Button>
+                </div>
+              </form>
+            </Card>
             <ParticipantsList attendees={attendees} eventId={event.id} />
           </Section>
 

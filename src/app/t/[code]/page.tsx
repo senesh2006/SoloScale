@@ -100,8 +100,8 @@ export default function TicketPage() {
         )}
 
         <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4 text-xs text-zinc-500">
-          Save the QR code or this link — you'll scan it at check-in. Lost the
-          email? Just bookmark this page.
+          Download your ticket as a PNG (with QR) using the button under the
+          card. Lost the email? Bookmark this page.
         </div>
       </div>
     </div>
