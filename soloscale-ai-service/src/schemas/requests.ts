@@ -4,7 +4,7 @@ export const StrategyRequestSchema = z.object({
   goal: z.string().min(3, "goal must be at least 3 characters"),
   eventDate: z.string().optional(),
   audience: z.string().optional(),
-  durationDays: z.number().int().min(1).max(60).optional(),
+  durationDays: z.number().int().min(1).max(90).optional(),
 });
 export type StrategyRequest = z.infer<typeof StrategyRequestSchema>;
 
@@ -26,7 +26,7 @@ export const CampaignRequestSchema = z.object({
   goal: z.string().min(3, "goal must be at least 3 characters"),
   eventDate: z.string().optional(),
   audience: z.string().optional(),
-  durationDays: z.number().int().min(1).max(60).optional(),
+  durationDays: z.number().int().min(1).max(90).optional(),
   /** ElevenLabs voice display name for hero voice-over. Omit for env default. */
   voiceName: z.string().min(1).optional(),
 });

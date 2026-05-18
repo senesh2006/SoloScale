@@ -11,6 +11,7 @@ import { COLLECTIONS } from "@/lib/firestore/collections";
 import { snapshotToObject } from "@/lib/firestore/serialize";
 import { getOwnedCampaign } from "@/lib/firestore/queries";
 import { createEventFromStrategy } from "@/lib/firestore/helpers";
+import { buildManualCampaignStrategy } from "@/lib/campaign/manual-strategy";
 import type { CampaignStrategy } from "@/types/campaign";
 
 type Params = { params: Promise<{ id: string }> };
@@ -79,13 +80,19 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: owned.error }, { status: owned.status });
   }
   const campaign = owned.data;
-  const strategy = campaign.strategy_json as CampaignStrategy | null | undefined;
+  let strategy = campaign.strategy_json as CampaignStrategy | null | undefined;
 
   if (!strategy) {
-    return NextResponse.json(
-      { error: "Generate your strategy before adding events" },
-      { status: 409 },
-    );
+    const minimal = buildManualCampaignStrategy({
+      title: String(campaign.title ?? "Campaign"),
+      goal_prompt: String(campaign.goal_prompt ?? ""),
+    });
+    await db.collection(COLLECTIONS.campaigns).doc(id).update({
+      strategy_json: minimal,
+      status: "strategy_ready",
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    strategy = minimal;
   }
 
   /**

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 import {
@@ -10,6 +11,7 @@ import { COLLECTIONS } from "@/lib/firestore/collections";
 import { snapshotToObject } from "@/lib/firestore/serialize";
 import { getOwnedCampaign } from "@/lib/firestore/queries";
 import { createEventFromStrategy } from "@/lib/firestore/helpers";
+import { buildManualCampaignStrategy } from "@/lib/campaign/manual-strategy";
 import type { CampaignStrategy } from "@/types/campaign";
 
 type Params = { params: Promise<{ id: string }> };
@@ -39,13 +41,19 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const campaign = owned.data;
-  const strategy = campaign.strategy_json as CampaignStrategy | null | undefined;
+  let strategy = campaign.strategy_json as CampaignStrategy | null | undefined;
 
   if (!strategy) {
-    return NextResponse.json(
-      { error: "Strategy not ready yet — generate strategy first" },
-      { status: 409 },
-    );
+    const minimal = buildManualCampaignStrategy({
+      title: String(campaign.title ?? "Campaign"),
+      goal_prompt: String(campaign.goal_prompt ?? ""),
+    });
+    await db.collection(COLLECTIONS.campaigns).doc(id).update({
+      strategy_json: minimal,
+      status: "strategy_ready",
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    strategy = minimal;
   }
 
   // Without an override title, return the existing event (idempotent).

@@ -7,7 +7,12 @@ export type CampaignStatus =
   | "assets_ready"
   | "published";
 
-export type CampaignMode = "all" | "strategy" | "flyer" | "voice";
+export type CampaignMode =
+  | "all"
+  | "strategy"
+  | "flyer"
+  | "voice"
+  | "manual";
 
 export type ContentType = "tweet" | "linkedin" | "reel" | "email";
 

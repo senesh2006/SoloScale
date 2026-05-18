@@ -16,6 +16,7 @@ import {
   ImageIcon,
   Mic,
   Upload,
+  NotebookPen,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { getCurrentIdToken } from "@/lib/firebase/auth-context";
@@ -27,7 +28,7 @@ import { TextField } from "@/components/ui/TextField";
 import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/lib/utils";
 
-type Mode = "all" | "strategy";
+type Mode = "all" | "strategy" | "manual";
 
 const modes: {
   id: Mode;
@@ -46,13 +47,20 @@ const modes: {
   {
     id: "strategy",
     label: "Strategy only",
-    description: "Just the 2-week multi-channel content calendar",
+    description: "AI calendar — you choose how many days the plan should cover",
     icon: CalendarIcon,
     accent: "from-sky-500 to-blue-600",
   },
+  {
+    id: "manual",
+    label: "Blank (no AI)",
+    description: "Empty timeline and a starter event page you edit yourself",
+    icon: NotebookPen,
+    accent: "from-emerald-500 to-teal-600",
+  },
 ];
 
-const examplePrompts: Record<Mode, string[]> = {
+const examplePrompts: Record<Exclude<Mode, "manual">, string[]> = {
   all: [
     "Host a 30-day fitness challenge for busy professionals",
     "Launch my new SaaS pricing page to indie designers",
@@ -87,14 +95,14 @@ export default function NewCampaignPage() {
             New campaign
           </h1>
           <p className="text-sm text-zinc-500">
-            Start with the full package or a strategy-first draft. Add flyers
-            and voiceovers from inside the campaign.
+            Use AI for a full package, strategy-only, or skip AI and build the
+            campaign yourself. Timeline length is configurable for AI modes.
           </p>
         </div>
       </header>
 
       {/* Mode picker */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {modes.map((m, i) => {
           const Icon = m.icon;
           const active = mode === m.id;
@@ -153,6 +161,7 @@ export default function NewCampaignPage() {
       <div key={mode} className="animate-fade-up">
         {mode === "all" && <AllInOneForm router={router} />}
         {mode === "strategy" && <StrategyOnlyForm router={router} />}
+        {mode === "manual" && <ManualCampaignForm router={router} />}
       </div>
 
       {/* Standalone-assets callout */}
@@ -187,7 +196,8 @@ export default function NewCampaignPage() {
         </div>
       </Card>
 
-      {/* Example prompts */}
+      {/* Example prompts — AI flows only */}
+      {mode !== "manual" && (
       <Card className="bg-gradient-to-br from-zinc-50 to-white p-5">
         <p className="flex items-center gap-2 text-xs font-medium text-zinc-700">
           <Sparkles className="h-3.5 w-3.5 text-violet-500" />
@@ -209,6 +219,7 @@ export default function NewCampaignPage() {
           ))}
         </div>
       </Card>
+      )}
     </div>
   );
 }
@@ -238,6 +249,7 @@ function AllInOneForm({
   const [goal, setGoal] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [audience, setAudience] = useState("");
+  const [horizonDays, setHorizonDays] = useState(14);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -256,6 +268,7 @@ function AllInOneForm({
             goal_prompt: goal,
             event_date: toIsoOrNull(eventDate),
             audience: audience || null,
+            strategy_horizon_days: horizonDays,
           }),
         },
       );
@@ -328,6 +341,23 @@ function AllInOneForm({
           hint="Optional — tunes voice and channels"
         />
       </div>
+
+      <TextField
+        name="strategy_horizon_days"
+        label="Timeline length (days)"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={90}
+        value={String(horizonDays)}
+        onChange={(e) => {
+          const n = Number.parseInt(e.target.value, 10);
+          setHorizonDays(
+            Number.isFinite(n) ? Math.min(90, Math.max(1, n)) : 14,
+          );
+        }}
+        hint="AI spreads scheduled posts across this window (1–90)."
+      />
     </FormShell>
   );
 }
@@ -344,6 +374,7 @@ function StrategyOnlyForm({
   const [goal, setGoal] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [audience, setAudience] = useState("");
+  const [horizonDays, setHorizonDays] = useState(14);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -362,6 +393,7 @@ function StrategyOnlyForm({
             goal_prompt: goal,
             event_date: toIsoOrNull(eventDate),
             audience: audience || null,
+            strategy_horizon_days: horizonDays,
           }),
         },
       );
@@ -402,7 +434,7 @@ function StrategyOnlyForm({
         placeholder="Describe the outcome you want — launches, signups, awareness..."
         required
         rows={5}
-        hint="Output: 2 weeks of tweets, LinkedIn posts, and email beats."
+        hint="AI builds a calendar across the number of days you set below."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -425,6 +457,113 @@ function StrategyOnlyForm({
           hint="Optional"
         />
       </div>
+
+      <TextField
+        name="strategy_horizon_days"
+        label="Timeline length (days)"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={90}
+        value={String(horizonDays)}
+        onChange={(e) => {
+          const n = Number.parseInt(e.target.value, 10);
+          setHorizonDays(
+            Number.isFinite(n) ? Math.min(90, Math.max(1, n)) : 14,
+          );
+        }}
+        hint="AI spreads scheduled posts across this window (1–90)."
+      />
+    </FormShell>
+  );
+}
+
+function ManualCampaignForm({
+  router,
+}: {
+  router: ReturnType<typeof useRouter>;
+}) {
+  const [title, setTitle] = useState("");
+  const [notes, setNotes] = useState("");
+  const [createEvent, setCreateEvent] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const { campaign } = await apiFetch<{ campaign: Campaign }>(
+        "/api/campaigns",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            mode: "manual",
+            title: title.trim() || "New campaign",
+            goal_prompt: notes.trim(),
+            create_initial_event: createEvent,
+          }),
+        },
+      );
+      router.push(`/dashboard/campaigns/${campaign.id}`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to create campaign",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <FormShell
+      title="Blank campaign"
+      subtitle="No AI calls — you get an empty timeline and can edit the strategy and event pages immediately."
+      submitLabel="Create campaign"
+      loadingSubmitLabel="Creating…"
+      onSubmit={submit}
+      loading={loading}
+      error={error}
+    >
+      <TextField
+        name="title"
+        label="Campaign title"
+        leftIcon={<Type className="h-4 w-4" />}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="e.g. Q3 workshop series"
+        required
+      />
+
+      <Textarea
+        id="goal-manual"
+        name="notes"
+        label="Notes (optional)"
+        leftIcon={<Target className="h-3.5 w-3.5" />}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Internal context — not required. Shown in the strategy summary for your reference."
+        rows={3}
+      />
+
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 text-sm">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 rounded border-zinc-300"
+          checked={createEvent}
+          onChange={(e) => setCreateEvent(e.target.checked)}
+        />
+        <span>
+          <span className="font-medium text-zinc-900">
+            Create a starter event page
+          </span>
+          <span className="mt-0.5 block text-zinc-500">
+            Uncheck if you only want the campaign shell and will add a public
+            page later.
+          </span>
+        </span>
+      </label>
     </FormShell>
   );
 }
@@ -580,6 +719,7 @@ function FormShell({
   title,
   subtitle,
   submitLabel,
+  loadingSubmitLabel = "Orchestrating AI agents",
   onSubmit,
   loading,
   error,
@@ -588,6 +728,7 @@ function FormShell({
   title: string;
   subtitle: string;
   submitLabel: string;
+  loadingSubmitLabel?: string;
   onSubmit: (e: React.FormEvent) => void;
   loading: boolean;
   error: string | null;
@@ -619,7 +760,7 @@ function FormShell({
           loading={loading}
           rightIcon={!loading ? <ArrowRight className="h-4 w-4" /> : undefined}
         >
-          {loading ? "Orchestrating AI agents" : submitLabel}
+          {loading ? loadingSubmitLabel : submitLabel}
         </Button>
       </form>
     </Card>

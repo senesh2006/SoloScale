@@ -62,29 +62,54 @@ const flexibleDateString = z
   );
 
 /* -------------------- CAMPAIGNS -------------------- */
-export const createCampaignSchema = z.object({
-  user_id: z.string().min(1).optional(),
-  title: z.string().min(1).default("New Campaign"),
-  goal_prompt: z.string().min(1, "goal_prompt is required"),
-  mode: z.enum(["all", "strategy", "flyer", "voice"]).optional().default("all"),
-  audience: z.string().nullable().optional(),
-  event_date: flexibleDateString.nullable().optional(),
-  flyer_input: z
-    .object({
-      visual_prompt: z.string(),
-      headline: z.string(),
-      subtext: z.string(),
-    })
-    .nullable()
-    .optional(),
-  voice_input: z
-    .object({
-      script: z.string(),
-      voice_id: z.string(),
-    })
-    .nullable()
-    .optional(),
-});
+export const createCampaignSchema = z
+  .object({
+    user_id: z.string().min(1).optional(),
+    title: z.string().min(1).default("New Campaign"),
+    goal_prompt: z.string().optional().default(""),
+    mode: z
+      .enum(["all", "strategy", "flyer", "voice", "manual"])
+      .optional()
+      .default("all"),
+    /** AI strategy window (days). Ignored for `manual`. Capped at 90 locally; microservice may cap lower. */
+    strategy_horizon_days: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(90)
+      .optional()
+      .default(14),
+    /** When `mode === "manual"`, set false to only create the campaign + blank strategy (no event doc). */
+    create_initial_event: z.boolean().optional().default(true),
+    audience: z.string().nullable().optional(),
+    event_date: flexibleDateString.nullable().optional(),
+    flyer_input: z
+      .object({
+        visual_prompt: z.string(),
+        headline: z.string(),
+        subtext: z.string(),
+      })
+      .nullable()
+      .optional(),
+    voice_input: z
+      .object({
+        script: z.string(),
+        voice_id: z.string(),
+      })
+      .nullable()
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    const needsGoal =
+      data.mode === "all" || data.mode === "strategy";
+    if (needsGoal && !data.goal_prompt.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "goal_prompt is required for AI-generated campaigns",
+        path: ["goal_prompt"],
+      });
+    }
+  });
 
 /* -------------------- EVENTS -------------------- */
 export const createEventSchema = z.object({

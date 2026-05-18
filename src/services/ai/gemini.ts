@@ -333,12 +333,18 @@ function mockScript(input: { title: string; goal_prompt: string }): string {
 export async function generateCampaignStrategy(input: {
   goal_prompt: string;
   title: string;
+  /** Marketing window for scheduled posts (default 14). */
+  horizonDays?: number;
 }): Promise<CampaignStrategy> {
   if (!hasResolvedGeminiApiKey()) {
     throw new Error(
       "Gemini API key not configured (set GEMINI_API_KEY or SS_AI_SERVICE_GEMINI_API_KEY)",
     );
   }
+
+  const days = Math.min(90, Math.max(1, input.horizonDays ?? 14));
+  const postBand =
+    days <= 7 ? "4-6" : days <= 14 ? "5-8" : days <= 30 ? "8-12" : "10-16";
 
   const model = getGenAI().getGenerativeModel({
     model: GEMINI_TEXT_MODEL,
@@ -349,13 +355,15 @@ export async function generateCampaignStrategy(input: {
   });
 
   const prompt = `
-    You are an expert marketing strategist and copywriter. 
-    Your task is to create a cohesive 2-week marketing campaign strategy for a campaign titled "${input.title}".
+    You are an expert marketing strategist and copywriter.
+    Your task is to create a cohesive marketing campaign strategy for a campaign titled "${input.title}".
     The user's goal is: "${input.goal_prompt}".
+
+    The content timeline must span the next ${days} calendar days (from "today" forward when choosing scheduled_at timestamps).
 
     Generate:
     1. A high-level summary of the strategy.
-    2. A timeline of 4-6 specific content items (tweets, linkedin posts, reels, or emails) scheduled over the next 14 days.
+    2. A timeline of ${postBand} specific content items (tweets, linkedin posts, reels, or emails) distributed across those ${days} days (use ISO 8601 strings for scheduled_at).
     3. A professional landing page draft for the main event associated with this campaign, including a headline, subhead, and markdown body text.
     4. A set of 2-3 custom form fields for the event registration that would be relevant to this specific audience.
 

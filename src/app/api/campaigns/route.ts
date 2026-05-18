@@ -26,6 +26,7 @@ import type {
   Dev1CampaignStrategy,
 } from "@/types/dev1-ai";
 import type { CampaignStrategy } from "@/types/campaign";
+import { buildManualCampaignStrategy } from "@/lib/campaign/manual-strategy";
 
 /**
  * GET /api/campaigns
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
   await campaignRef.set({
     user_id: userId,
     title: input.title,
-    goal_prompt: input.goal_prompt,
+    goal_prompt: input.goal_prompt.trim(),
     mode: input.mode,
     status: "draft",
     strategy_json: null,
@@ -131,6 +132,35 @@ export async function POST(request: Request) {
   const eventDateNormalized = normalizeEventDate(
     input.event_date ?? json.eventDate,
   );
+  const horizonDays = Math.min(
+    90,
+    Math.max(1, input.strategy_horizon_days ?? 14),
+  );
+
+  // --- Manual: blank strategy + optional event, no AI ---
+  if (input.mode === "manual") {
+    const strategy = buildManualCampaignStrategy({
+      title: input.title,
+      goal_prompt: input.goal_prompt,
+    });
+    await campaignRef.update({
+      strategy_json: strategy,
+      status: "strategy_ready",
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    if (input.create_initial_event) {
+      await createEventFromStrategy(db, {
+        campaignId: campaignRef.id,
+        title: input.title,
+        strategy,
+      });
+    }
+    const createdManual = await campaignRef.get();
+    return NextResponse.json(
+      { campaign: snapshotToObject(createdManual) },
+      { status: 201 },
+    );
+  }
 
   // --- Path 1: external AI service (preferred when configured) ---
   if (
@@ -146,6 +176,7 @@ export async function POST(request: Request) {
             goal: input.goal_prompt,
             eventDate: eventDateNormalized,
             audience: input.audience ?? undefined,
+            durationDays: horizonDays,
             voiceName,
           }),
           timeoutMs: AI_TIMEOUT.campaign,
@@ -168,6 +199,7 @@ export async function POST(request: Request) {
               goal: input.goal_prompt,
               eventDate: eventDateNormalized,
               audience: input.audience ?? undefined,
+              durationDays: horizonDays,
             }),
             timeoutMs: AI_TIMEOUT.default,
           },
@@ -214,6 +246,7 @@ export async function POST(request: Request) {
       const strategy = (await generateCampaignStrategy({
         title: input.title,
         goal_prompt: input.goal_prompt,
+        horizonDays,
       })) as CampaignStrategy;
 
       await campaignRef.update({
