@@ -36,8 +36,15 @@ export async function PATCH(request: Request, { params }: Params) {
   const raw = await request.json().catch(() => ({}));
   const parsed = updateEventTicketDesignBodySchema.safeParse(raw);
   if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    const hint = first
+      ? `${first.path.join(".") || "ticket_design"}: ${first.message}`
+      : parsed.error.message;
     return NextResponse.json(
-      { error: "Invalid ticket design", issues: parsed.error.issues },
+      {
+        error: `Invalid ticket design (${hint})`,
+        issues: parsed.error.issues,
+      },
       { status: 400 },
     );
   }

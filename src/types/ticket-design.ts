@@ -113,7 +113,18 @@ export const TICKET_DESIGN_PRESETS: {
 export function resolveTicketDesign(
   raw: Partial<TicketDesign> | null | undefined,
 ): TicketDesign {
-  return { ...DEFAULT_TICKET_DESIGN, ...(raw ?? {}) };
+  const patch: Partial<TicketDesign> = { ...(raw ?? {}) };
+  if (
+    typeof patch.header_color_mid === "string" &&
+    patch.header_color_mid.trim() === ""
+  ) {
+    patch.header_color_mid = null;
+  }
+  if (typeof patch.header_background_image_url === "string") {
+    const t = patch.header_background_image_url.trim();
+    patch.header_background_image_url = t === "" ? null : t;
+  }
+  return { ...DEFAULT_TICKET_DESIGN, ...patch };
 }
 
 export function buildHeaderBackground(d: TicketDesign): string {

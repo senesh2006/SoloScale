@@ -27,25 +27,79 @@ export const eventPriceSchema = z.object({
   currency: z.enum(["USD", "EUR", "GBP", "INR", "LKR"]),
 });
 
-const ticketHexColor = z
-  .string()
-  .regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, "Use #RGB or #RRGGBB");
+const ticketHexColor = z.preprocess(
+  (v) => {
+    if (typeof v !== "string") return v;
+    let s = v.trim();
+    if (/^#[0-9A-Fa-f]{8}$/.test(s)) {
+      s = s.slice(0, 7);
+    }
+    return s;
+  },
+  z
+    .string()
+    .regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, "Use #RGB or #RRGGBB"),
+);
 
-const ticketHeaderImageUrl = z
-  .union([z.string().url().max(2048), z.literal(""), z.null()])
-  .transform((v) => (v === "" || v == null ? null : v));
+function isValidHttpImageUrl(s: string): boolean {
+  try {
+    const u = new URL(s);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
-export const ticketDesignSchema = z.object({
+const ticketHeaderImageUrl = z.preprocess(
+  (v) => {
+    if (v == null || v === "") return null;
+    if (typeof v === "string") {
+      const t = v.trim();
+      return t === "" ? null : t;
+    }
+    return v;
+  },
+  z
+    .union([
+      z.null(),
+      z.string().max(8192).refine((s) => isValidHttpImageUrl(s), {
+        message: "Use a valid http(s) image URL",
+      }),
+    ]),
+);
+
+const ticketColorMid = z.preprocess(
+  (v) => {
+    if (v === "" || v === undefined) return null;
+    return v;
+  },
+  ticketHexColor.nullable(),
+);
+
+function asNumber(v: unknown): unknown {
+  if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) {
+    return Number(v);
+  }
+  return v;
+}
+
+const ticketDesignFieldsSchema = z.object({
   header_style: z.enum(["gradient", "solid"]),
-  header_gradient_angle: z.number().min(0).max(360),
+  header_gradient_angle: z.preprocess(asNumber, z.number().min(0).max(360)),
   header_color_start: ticketHexColor,
-  header_color_mid: ticketHexColor.nullable(),
+  header_color_mid: ticketColorMid,
   header_color_end: ticketHexColor,
   header_background_image_url: ticketHeaderImageUrl,
-  header_image_overlay_opacity: z.number().min(0).max(0.85),
+  header_image_overlay_opacity: z.preprocess(
+    asNumber,
+    z.number().min(0).max(0.85),
+  ),
   header_text_color: ticketHexColor,
   header_text_align: z.enum(["left", "center", "right"]),
-  header_padding_px: z.number().int().min(8).max(48),
+  header_padding_px: z.preprocess(
+    asNumber,
+    z.number().int().min(8).max(48),
+  ),
   body_background: ticketHexColor,
   body_text_color: ticketHexColor,
   muted_text_color: ticketHexColor,
@@ -53,8 +107,17 @@ export const ticketDesignSchema = z.object({
   qr_position: z.enum(["left", "right"]),
   accent_color: ticketHexColor,
   border_color: ticketHexColor,
-  show_perforation: z.boolean(),
+  show_perforation: z.preprocess(
+    (v) => {
+      if (v === "true") return true;
+      if (v === "false") return false;
+      return v;
+    },
+    z.boolean(),
+  ),
 });
+
+export const ticketDesignSchema = ticketDesignFieldsSchema;
 
 export const updateEventTicketDesignBodySchema = z.object({
   ticket_design: ticketDesignSchema,
