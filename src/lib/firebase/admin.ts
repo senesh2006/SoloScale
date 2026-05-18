@@ -25,11 +25,18 @@ export function getFirebaseAdmin() {
   }
 
   let serviceAccount;
-  
+
   // Try to get service account from JSON env var first
   const jsonStr = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (jsonStr) {
-    serviceAccount = JSON.parse(jsonStr);
+    try {
+      serviceAccount = JSON.parse(jsonStr) as Record<string, unknown>;
+    } catch {
+      throw new Error(
+        "FIREBASE_SERVICE_ACCOUNT_JSON is set but is not valid JSON. " +
+          "Use the full service-account JSON as a single minified line.",
+      );
+    }
   } else {
     // Try to read from file path
     const path = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
@@ -47,8 +54,14 @@ export function getFirebaseAdmin() {
       credential: cert(serviceAccount),
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     });
+  } else if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Firebase Admin has no service account in production. " +
+        "Set FIREBASE_SERVICE_ACCOUNT_JSON in Vercel (full JSON, one line) " +
+        "or a valid FIREBASE_SERVICE_ACCOUNT_PATH for hosts that expose a file.",
+    );
   } else {
-    // GCP default credentials (e.g. GOOGLE_APPLICATION_CREDENTIALS)
+    // Local dev: ADC or emulator-friendly init when no JSON/path (Firestore may still fail).
     adminApp = initializeApp({
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,

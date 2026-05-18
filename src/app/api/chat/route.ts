@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Gemini is not configured. Add GEMINI_API_KEY to .env.local (see .env.example).",
+          "Gemini is not configured. Set GEMINI_API_KEY or SS_AI_SERVICE_GEMINI_API_KEY (see .env.example).",
       },
       { status: 503 },
     );
@@ -161,6 +161,10 @@ export async function POST(request: Request) {
     }
 
     let out = message;
+    if (/API_KEY_INVALID|invalid api key|pass a valid api key/i.test(out)) {
+      out +=
+        " Add a valid key from https://aistudio.google.com/apikey as GEMINI_API_KEY or SS_AI_SERVICE_GEMINI_API_KEY (not your Firebase web API key).";
+    }
     if (
       /ENOTFOUND|fetch failed|ECONNREFUSED|EAI_AGAIN|network|certificate/i.test(
         out,
@@ -169,9 +173,12 @@ export async function POST(request: Request) {
       out +=
         " If this repeats for every key, the server cannot reach generativelanguage.googleapis.com (DNS, firewall, VPN, or offline).";
     }
-    if (/HTTP\s+404\b/i.test(out) || /not found/i.test(out)) {
+    if (
+      /HTTP\s+404\b/i.test(out) ||
+      (/not found/i.test(out) && !/api\s*key/i.test(out))
+    ) {
       out +=
-        " Check GEMINI_TEXT_MODEL in .env.local (e.g. gemini-2.0-flash or gemini-2.5-flash per AI Studio).";
+        " Check GEMINI_TEXT_MODEL (e.g. gemini-2.0-flash or gemini-2.5-flash per AI Studio).";
     }
     if (/HTTP\s+429\b|resource exhausted|quota/i.test(out)) {
       out +=

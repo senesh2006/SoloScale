@@ -52,7 +52,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json(
       {
         error:
-          "Report generation requires GEMINI_API_KEY (and optional GEMINI_IMAGE_API_KEYS) in the SoloScale environment.",
+          "Report generation requires GEMINI_API_KEY or SS_AI_SERVICE_GEMINI_API_KEY (and optional GEMINI_IMAGE_API_KEYS / SS_AI_SERVICE_GEMINI_IMAGE_API_KEYS).",
       },
       { status: 503 },
     );

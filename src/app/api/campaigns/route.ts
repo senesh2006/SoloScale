@@ -14,10 +14,11 @@ import { createCampaignSchema } from "@/lib/validation/api-inputs";
 import { createEventFromStrategy } from "@/lib/firestore/helpers";
 import { parseLimit } from "@/lib/firestore/queries";
 import {
-  AI_TIMEOUT,
   aiFetchJson,
+  AI_TIMEOUT,
   isAiServiceEnabled,
 } from "@/lib/ai-service-client";
+import { hasResolvedGeminiApiKey } from "@/lib/gemini-env";
 import { applyDev1ToCampaign } from "@/lib/apply-ai-to-campaign";
 import { normalizeEventDate } from "@/lib/adapters/dev1StrategyToDashboard";
 import type {
@@ -205,7 +206,7 @@ export async function POST(request: Request) {
 
   if (
     !appliedStrategy &&
-    process.env.GEMINI_API_KEY &&
+    hasResolvedGeminiApiKey() &&
     input.mode !== "flyer" &&
     input.mode !== "voice"
   ) {

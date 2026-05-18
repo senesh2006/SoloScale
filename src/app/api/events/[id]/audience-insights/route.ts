@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json(
       {
         error:
-          "Gemini is not configured. Add GEMINI_API_KEY to .env.local (see .env.example).",
+          "Gemini is not configured. Set GEMINI_API_KEY or SS_AI_SERVICE_GEMINI_API_KEY (see .env.example).",
       },
       { status: 503 },
     );

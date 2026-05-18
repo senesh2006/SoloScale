@@ -1,8 +1,14 @@
 import { GoogleGenerativeAI, SchemaType, type Schema } from "@google/generative-ai";
 import { GEMINI_TEXT_MODEL } from "@/services/ai/geminiModel";
 import type { VisionCampaignSeed } from "@/types/vision";
+import {
+  hasResolvedGeminiApiKey,
+  resolveGeminiApiKey,
+} from "@/lib/gemini-env";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+function getGenAI(): GoogleGenerativeAI {
+  return new GoogleGenerativeAI(resolveGeminiApiKey());
+}
 
 const visionSeedSchema = {
   description: "Structured campaign fields extracted from a photo of a whiteboard or sketch",
@@ -41,12 +47,12 @@ export async function analyzeCampaignSketch(input: {
   imageBase64: string;
   mimeType: string;
 }): Promise<VisionCampaignSeed> {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!hasResolvedGeminiApiKey()) {
     return mockVisionSeed();
   }
 
   try {
-    const model = genAI.getGenerativeModel({
+    const model = getGenAI().getGenerativeModel({
       model: GEMINI_TEXT_MODEL,
       generationConfig: {
         responseMimeType: "application/json",

@@ -9,8 +9,14 @@ import type {
   VoiceoverInput,
 } from "@/types/campaign";
 import { GEMINI_TEXT_MODEL } from "@/services/ai/geminiModel";
+import {
+  hasResolvedGeminiApiKey,
+  resolveGeminiApiKey,
+} from "@/lib/gemini-env";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+function getGenAI(): GoogleGenerativeAI {
+  return new GoogleGenerativeAI(resolveGeminiApiKey());
+}
 
 export type StrategyAssetBrief = {
   flyer: FlyerInput;
@@ -72,12 +78,12 @@ export async function generateAssetsFromStrategy(input: {
   goal_prompt: string;
   strategy: CampaignStrategy;
 }): Promise<StrategyAssetBrief> {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!hasResolvedGeminiApiKey()) {
     return mockAssetsFromStrategy(input);
   }
 
   try {
-    const model = genAI.getGenerativeModel({
+    const model = getGenAI().getGenerativeModel({
       model: GEMINI_TEXT_MODEL,
       generationConfig: {
         responseMimeType: "application/json",
@@ -187,12 +193,12 @@ export async function refineCampaignStrategy(input: {
   title: string;
   goal_prompt: string;
 }): Promise<CampaignStrategy> {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!hasResolvedGeminiApiKey()) {
     return mockRefine(input);
   }
 
   try {
-    const model = genAI.getGenerativeModel({
+    const model = getGenAI().getGenerativeModel({
       model: GEMINI_TEXT_MODEL,
       generationConfig: {
         responseMimeType: "application/json",
@@ -273,12 +279,12 @@ export async function generateVoiceScript(input: {
   hint?: string;
   strategy?: CampaignStrategy | null;
 }): Promise<string> {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!hasResolvedGeminiApiKey()) {
     return mockScript(input);
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: GEMINI_TEXT_MODEL });
+    const model = getGenAI().getGenerativeModel({ model: GEMINI_TEXT_MODEL });
     const strategyBlock = input.strategy
       ? `
       Use this approved campaign strategy for tone and messaging:
@@ -328,11 +334,13 @@ export async function generateCampaignStrategy(input: {
   goal_prompt: string;
   title: string;
 }): Promise<CampaignStrategy> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured");
+  if (!hasResolvedGeminiApiKey()) {
+    throw new Error(
+      "Gemini API key not configured (set GEMINI_API_KEY or SS_AI_SERVICE_GEMINI_API_KEY)",
+    );
   }
 
-  const model = genAI.getGenerativeModel({
+  const model = getGenAI().getGenerativeModel({
     model: GEMINI_TEXT_MODEL,
     generationConfig: {
       responseMimeType: "application/json",

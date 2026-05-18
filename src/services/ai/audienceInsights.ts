@@ -149,7 +149,9 @@ export async function generateAudienceInsights(
 ): Promise<AudienceInsights> {
   const keys = getGeminiApiKeys();
   if (keys.length === 0) {
-    throw new Error("GEMINI_API_KEY is not configured");
+    throw new Error(
+      "Gemini API key not configured (GEMINI_API_KEY or SS_AI_SERVICE_GEMINI_API_KEY)",
+    );
   }
 
   const prompt = buildPrompt(input);

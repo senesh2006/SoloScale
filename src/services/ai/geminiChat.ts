@@ -78,7 +78,7 @@ export async function runGeminiAssistantTurn(args: {
   const keys = getGeminiApiKeys();
   if (keys.length === 0) {
     throw new Error(
-      "No Gemini API keys configured (set GEMINI_API_KEY in .env.local)",
+      "No Gemini API keys configured (set GEMINI_API_KEY or SS_AI_SERVICE_GEMINI_API_KEY)",
     );
   }
 
