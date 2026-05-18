@@ -50,6 +50,9 @@ function isValidHttpImageUrl(s: string): boolean {
   }
 }
 
+/** Signed storage / CDN URLs are often very long; cap under Firestore ~1 MiB doc size. */
+const TICKET_IMAGE_URL_MAX_LEN = 300_000;
+
 const ticketHeaderImageUrl = z.preprocess(
   (v) => {
     if (v == null || v === "") return null;
@@ -59,13 +62,12 @@ const ticketHeaderImageUrl = z.preprocess(
     }
     return v;
   },
-  z
-    .union([
-      z.null(),
-      z.string().max(8192).refine((s) => isValidHttpImageUrl(s), {
-        message: "Use a valid http(s) image URL",
-      }),
-    ]),
+  z.union([
+    z.null(),
+    z.string().max(TICKET_IMAGE_URL_MAX_LEN).refine((s) => isValidHttpImageUrl(s), {
+      message: "Use a valid http(s) image URL",
+    }),
+  ]),
 );
 
 const ticketColorMid = z.preprocess(
