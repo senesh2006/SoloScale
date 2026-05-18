@@ -83,22 +83,40 @@ export function TicketCard({ attendee, event, className }: Props) {
     setDownloading(true);
     try {
       await waitForImagesInTicket(el);
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: "#ffffff",
-        logging: false,
-        imageTimeout: 20000,
-      });
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), "image/png", 1);
-      });
+
+      let blob: Blob | null = null;
+
+      try {
+        const { toBlob } = await import("html-to-image");
+        blob = await toBlob(el, {
+          cacheBust: true,
+          pixelRatio: 2,
+          backgroundColor: "#ffffff",
+        });
+      } catch {
+        blob = null;
+      }
+
+      if (!blob || blob.size === 0) {
+        const { default: html2canvas } = await import("html2canvas");
+        const canvas = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: "#ffffff",
+          logging: false,
+          imageTimeout: 20000,
+          foreignObjectRendering: true,
+        });
+        blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((b) => resolve(b), "image/png", 1);
+        });
+      }
+
       if (blob && blob.size > 0) {
         saveBlobAsFile(blob, `ticket-${code}.png`);
       } else {
-        throw new Error("empty canvas blob");
+        throw new Error("empty ticket capture");
       }
     } catch {
       try {
@@ -125,7 +143,7 @@ export function TicketCard({ attendee, event, className }: Props) {
               <TicketIcon className="h-3.5 w-3.5" />
               Admit one
             </div>
-            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest backdrop-blur">
+            <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest">
               confirmed
             </span>
           </div>
