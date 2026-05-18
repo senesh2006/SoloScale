@@ -45,8 +45,8 @@ Implemented in `keyPool.ts` via `tryAcrossKeys`:
 
 | Pool | Keys | Used for |
 | ---- | ---- | -------- |
-| **Image** | `GEMINI_IMAGE_API_KEYS` or `GEMINI_API_KEY` | `/api/flyer` only |
-| **Strategy** | `GEMINI_API_KEY` + image pool keys (deduped) | `/api/strategy`; main key first |
+| **Image** | `SS_AI_SERVICE_GEMINI_IMAGE_API_KEYS` or main Gemini key (`SS_AI_SERVICE_GEMINI_API_KEY`; legacy unprefixed names still work) | `/api/flyer` only |
+| **Strategy** | Main Gemini key + image pool keys (deduped) | `/api/strategy`; main key first |
 
 ## HTTP transport (Windows)
 

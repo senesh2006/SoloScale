@@ -25,7 +25,7 @@ Full documentation lives in **[`docs/`](./docs/README.md)**:
 
 ```bash
 cp .env.example .env
-# Set GEMINI_API_KEY and ELEVENLABS_API_KEY
+# Prefixed vars (see .env.example): SS_AI_SERVICE_GEMINI_*, PIXAZO, ELEVENLABS
 npm install
 npm run dev
 ```
@@ -51,10 +51,11 @@ npm run dev
 
 | Variable | Required |
 | -------- | -------- |
-| `GEMINI_API_KEY` | Yes |
-| `ELEVENLABS_API_KEY` | Yes |
+| `SS_AI_SERVICE_GEMINI_API_KEY` | Yes |
+| `SS_AI_SERVICE_PIXAZO_API_KEY` | Yes |
+| `SS_AI_SERVICE_ELEVENLABS_API_KEY` | Yes |
 
-See [Getting started](./docs/getting-started.md) for all options (`GEMINI_IMAGE_API_KEYS`, voice defaults, `USE_CURL_FETCH`, etc.).
+Legacy unprefixed names (`GEMINI_API_KEY`, …) still work when prefixed vars are unset. See [Getting started](./docs/getting-started.md).
 
 **Flyer model:** always `gemini-2.5-flash-image` (not configurable).  
 **Voices:** UI uses **names** (e.g. `Rachel`); server maps to ElevenLabs IDs.

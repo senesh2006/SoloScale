@@ -9,7 +9,7 @@ Step-by-step behavior for each endpoint.
 1. Validate body (`goal`, optional `eventDate`, `audience`, `durationDays`).
 2. Build user prompt via `buildStrategyUserPrompt()` in `strategyPrompt.ts`.
 3. Call Gemini `generateContent`:
-   - Model: `GEMINI_TEXT_MODEL` (default `gemini-2.5-flash`)
+   - Model: `SS_AI_SERVICE_GEMINI_TEXT_MODEL` (legacy `GEMINI_TEXT_MODEL`; default `gemini-2.5-flash`)
    - System: `STRATEGY_SYSTEM_INSTRUCTION`
    - `responseMimeType: application/json` + `responseSchema`
 4. Rotate API keys on 429 (strategy pool).
@@ -37,7 +37,7 @@ Step-by-step behavior for each endpoint.
 ## `GET /api/voices`
 
 1. Fetch ElevenLabs `/v1/voices` (cached 5 minutes).
-2. Return sorted `{ name }` list + `defaultVoiceName` from `ELEVENLABS_VOICE_ID`.
+2. Return sorted `{ name }` list + `defaultVoiceName` from env (`SS_AI_SERVICE_ELEVENLABS_VOICE_ID` or legacy `ELEVENLABS_VOICE_ID`).
 
 ---
 

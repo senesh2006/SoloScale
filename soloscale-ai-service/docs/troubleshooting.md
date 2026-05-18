@@ -21,7 +21,7 @@ npm run dev
 
 **Fixes:**
 
-- Set `GEMINI_IMAGE_API_KEYS` from **separate** Google Cloud projects
+- Set `SS_AI_SERVICE_GEMINI_IMAGE_API_KEYS` (or legacy `GEMINI_IMAGE_API_KEYS`) from **separate** Google Cloud projects
 - Strategy auto-falls back to image-pool keys when main key is exhausted
 - Enable billing on AI Studio / GCP project
 - Wait for daily quota reset
@@ -44,7 +44,7 @@ Keep `USE_CURL_FETCH=true` (default on Windows). Uses `curl.exe` instead of Node
 
 ## Unknown voice name
 
-Use a name from `GET /api/voices`. Omit `voiceName` for default (`ELEVENLABS_VOICE_ID`).
+Use a name from `GET /api/voices`. Omit `voiceName` for default (`SS_AI_SERVICE_ELEVENLABS_VOICE_ID` / legacy `ELEVENLABS_VOICE_ID`).
 
 ## Campaign 200 but null assets
 
@@ -58,6 +58,7 @@ The path usually means **Root Directory** is set to `src/` (Next.js). In this re
 
 **Infrastructure as code:** `render.yaml` at the repo root uses `rootDir: soloscale-ai-service` ([Render monorepo docs](https://render.com/docs/monorepo-support#setting-a-root-directory)).
 
+Configure **Render env** with **`SS_AI_SERVICE_*`** names from `soloscale-ai-service/.env.example` (preferred), or keep legacy unprefixed names — both are accepted at startup.
 ## Reading terminal logs
 
 ```
