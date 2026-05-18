@@ -31,12 +31,18 @@ const ticketHexColor = z
   .string()
   .regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, "Use #RGB or #RRGGBB");
 
+const ticketHeaderImageUrl = z
+  .union([z.string().url().max(2048), z.literal(""), z.null()])
+  .transform((v) => (v === "" || v == null ? null : v));
+
 export const ticketDesignSchema = z.object({
   header_style: z.enum(["gradient", "solid"]),
   header_gradient_angle: z.number().min(0).max(360),
   header_color_start: ticketHexColor,
   header_color_mid: ticketHexColor.nullable(),
   header_color_end: ticketHexColor,
+  header_background_image_url: ticketHeaderImageUrl,
+  header_image_overlay_opacity: z.number().min(0).max(0.85),
   header_text_color: ticketHexColor,
   header_text_align: z.enum(["left", "center", "right"]),
   header_padding_px: z.number().int().min(8).max(48),

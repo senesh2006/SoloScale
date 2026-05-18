@@ -10,6 +10,15 @@ export type TicketDesign = {
   /** Middle stop; omit solid headers or two-stop gradients. */
   header_color_mid: string | null;
   header_color_end: string;
+  /**
+   * Full-bleed header background image (https URL). When set, replaces
+   * gradient/solid colors for the header band only.
+   */
+  header_background_image_url: string | null;
+  /**
+   * 0–0.85 dark overlay on top of the header image (improves text contrast).
+   */
+  header_image_overlay_opacity: number;
   header_text_color: string;
   header_text_align: "left" | "center" | "right";
   header_padding_px: number;
@@ -30,6 +39,8 @@ export const DEFAULT_TICKET_DESIGN: TicketDesign = {
   header_color_start: "#7c3aed",
   header_color_mid: "#c026d3",
   header_color_end: "#f43f5e",
+  header_background_image_url: null,
+  header_image_overlay_opacity: 0.4,
   header_text_color: "#ffffff",
   header_text_align: "left",
   header_padding_px: 20,

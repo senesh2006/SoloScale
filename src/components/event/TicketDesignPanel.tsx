@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Check, Palette, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { Check, Image as ImageIcon, Palette, RotateCcw, Upload } from "lucide-react";
 import { TicketCard } from "@/components/event/TicketCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { apiFetch } from "@/lib/api";
+import { uploadImage } from "@/lib/upload-client";
 import type { Event } from "@/types/event";
 import {
   DEFAULT_TICKET_DESIGN,
@@ -68,12 +69,15 @@ type Props = {
 };
 
 export function TicketDesignPanel({ event, onSaved }: Props) {
+  const headerFileInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState<TicketDesign>(() =>
     resolveTicketDesign(event.ticket_design),
   );
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
 
   const serverDesignKey = JSON.stringify(event.ticket_design ?? null);
   useEffect(() => {
@@ -113,6 +117,22 @@ export function TicketDesignPanel({ event, onSaved }: Props) {
     setDraft(resolveTicketDesign({ ...DEFAULT_TICKET_DESIGN, ...patch }));
   }
 
+  async function onHeaderImageFile(file: File | undefined) {
+    if (!file) return;
+    setImageUploadError(null);
+    setImageUploading(true);
+    try {
+      const url = await uploadImage(file, { folder: "events/ticket-header" });
+      setDraft((d) => ({ ...d, header_background_image_url: url }));
+    } catch (e) {
+      setImageUploadError(
+        e instanceof Error ? e.message : "Upload failed",
+      );
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
       <Card className="space-y-5 p-5">
@@ -125,6 +145,111 @@ export function TicketDesignPanel({ event, onSaved }: Props) {
             <span className="font-mono text-xs">/t/…</span> page. Safe to change
             while the event is live.
           </p>
+        </div>
+
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+          <p className="text-xs font-medium text-zinc-800">
+            Header background image
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Optional. Fills the top band of the ticket instead of the
+            gradient/solid colors. Paste a direct link (must be{" "}
+            <span className="font-mono">https://</span>) or upload a file.
+            Hosts that block hotlinking may not show in previews or downloads.
+          </p>
+          <input
+            type="url"
+            className="mt-3 h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400"
+            placeholder="https://example.com/photo.jpg"
+            value={draft.header_background_image_url ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              setDraft((d) => ({
+                ...d,
+                header_background_image_url: v === "" ? null : v,
+              }));
+            }}
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              setDraft((d) => ({
+                ...d,
+                header_background_image_url: v === "" ? null : v,
+              }));
+            }}
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              ref={headerFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                onHeaderImageFile(e.target.files?.[0]).catch(console.error);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              loading={imageUploading}
+              leftIcon={<Upload className="h-3.5 w-3.5" />}
+              onClick={() => headerFileInputRef.current?.click()}
+            >
+              Upload image
+            </Button>
+            {draft.header_background_image_url ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                leftIcon={<ImageIcon className="h-3.5 w-3.5" />}
+                onClick={() =>
+                  setDraft((d) => ({
+                    ...d,
+                    header_background_image_url: null,
+                  }))
+                }
+              >
+                Remove image
+              </Button>
+            ) : null}
+          </div>
+          {imageUploadError ? (
+            <p className="mt-2 text-xs text-red-600">{imageUploadError}</p>
+          ) : null}
+          {draft.header_background_image_url ? (
+            <>
+              <div className="mt-3 flex items-start gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={draft.header_background_image_url}
+                  alt=""
+                  className="pointer-events-none h-24 max-w-[min(100%,280px)] rounded-lg border border-zinc-200 object-cover"
+                />
+              </div>
+              <div className="mt-3">
+                <label className="text-xs font-medium text-zinc-500">
+                  Dark overlay for headline readability (
+                  {Math.round(draft.header_image_overlay_opacity * 100)}%)
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={85}
+                  value={Math.round(draft.header_image_overlay_opacity * 100)}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      header_image_overlay_opacity:
+                        Number(e.target.value) / 100,
+                    }))
+                  }
+                  className="mt-2 w-full max-w-xs"
+                />
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div>

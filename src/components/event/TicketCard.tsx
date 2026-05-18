@@ -88,6 +88,10 @@ export function TicketCard({ attendee, event, className }: Props) {
     setDownloading(true);
     try {
       await waitForImagesInTicket(el);
+      const imgUrl = d.header_background_image_url?.trim();
+      if (imgUrl) {
+        await prefetchHeaderBackground(imgUrl);
+      }
 
       let blob: Blob | null = null;
 
@@ -137,6 +141,18 @@ export function TicketCard({ attendee, event, className }: Props) {
   }
 
   const headerBg = buildHeaderBackground(d);
+  const headerImageUrl = d.header_background_image_url?.trim() ?? "";
+  const useHeaderImage = headerImageUrl.length > 0;
+
+  async function prefetchHeaderBackground(url: string) {
+    await new Promise<void>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+      img.src = url;
+    });
+  }
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -150,14 +166,28 @@ export function TicketCard({ attendee, event, className }: Props) {
       >
         <div
           className="p-5"
-          style={{
-            background: headerBg,
-            color: d.header_text_color,
-            paddingLeft: d.header_padding_px,
-            paddingRight: d.header_padding_px,
-            paddingTop: d.header_padding_px,
-            paddingBottom: d.header_padding_px,
-          }}
+          style={
+            useHeaderImage
+              ? {
+                  backgroundImage: `linear-gradient(rgba(0,0,0,${d.header_image_overlay_opacity}), rgba(0,0,0,${d.header_image_overlay_opacity})), url(${JSON.stringify(headerImageUrl)})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                  color: d.header_text_color,
+                  paddingLeft: d.header_padding_px,
+                  paddingRight: d.header_padding_px,
+                  paddingTop: d.header_padding_px,
+                  paddingBottom: d.header_padding_px,
+                }
+              : {
+                  background: headerBg,
+                  color: d.header_text_color,
+                  paddingLeft: d.header_padding_px,
+                  paddingRight: d.header_padding_px,
+                  paddingTop: d.header_padding_px,
+                  paddingBottom: d.header_padding_px,
+                }
+          }
         >
           <div
             className={cn(
