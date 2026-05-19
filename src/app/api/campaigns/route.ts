@@ -137,12 +137,14 @@ export async function POST(request: Request) {
     Math.max(1, input.strategy_horizon_days ?? 14),
   );
 
-  // --- Manual: blank strategy + optional event, no AI ---
+  // --- Manual: blank or client-supplied strategy + optional event, no assets AI ---
   if (input.mode === "manual") {
-    const strategy = buildManualCampaignStrategy({
-      title: input.title,
-      goal_prompt: input.goal_prompt,
-    });
+    const strategy =
+      input.strategy_json ??
+      buildManualCampaignStrategy({
+        title: input.title,
+        goal_prompt: input.goal_prompt,
+      });
     await campaignRef.update({
       strategy_json: strategy,
       status: "strategy_ready",

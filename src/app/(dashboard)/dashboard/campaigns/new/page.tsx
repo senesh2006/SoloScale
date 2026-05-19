@@ -17,8 +17,11 @@ import {
   Mic,
   Upload,
   NotebookPen,
+  Lightbulb,
+  X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import type { CampaignStrategy } from "@/types/campaign";
 import { getCurrentIdToken } from "@/lib/firebase/auth-context";
 import type { Campaign } from "@/types/campaign";
 import type { VisionCampaignSeed } from "@/types/dev1-ai";
@@ -356,26 +359,74 @@ function ManualCampaignForm({
   router: ReturnType<typeof useRouter>;
 }) {
   const [title, setTitle] = useState("");
-  const [notes, setNotes] = useState("");
+  const [goal, setGoal] = useState("");
+  const [audience, setAudience] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [horizonDays, setHorizonDays] = useState(14);
+  const [suggestedStrategy, setSuggestedStrategy] =
+    useState<CampaignStrategy | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const [createEvent, setCreateEvent] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function suggestStrategy() {
+    const trimmedGoal = goal.trim();
+    if (!trimmedGoal) {
+      setSuggestError("Add a campaign goal before suggesting a strategy.");
+      return;
+    }
+    setSuggesting(true);
+    setSuggestError(null);
+    try {
+      const { strategy } = await apiFetch<{ strategy: CampaignStrategy }>(
+        "/api/campaigns/suggest-strategy",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title: title.trim() || "New campaign",
+            goal_prompt: trimmedGoal,
+            strategy_horizon_days: horizonDays,
+            audience: audience.trim() || null,
+            event_date: toIsoOrNull(eventDate),
+          }),
+        },
+      );
+      setSuggestedStrategy(strategy);
+    } catch (err) {
+      setSuggestError(
+        err instanceof Error ? err.message : "Could not suggest a strategy",
+      );
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  function clearSuggestion() {
+    setSuggestedStrategy(null);
+    setSuggestError(null);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
+      const payload: Record<string, unknown> = {
+        mode: "manual",
+        title: title.trim() || "New campaign",
+        goal_prompt: goal.trim(),
+        create_initial_event: createEvent,
+      };
+      if (suggestedStrategy) {
+        payload.strategy_json = suggestedStrategy;
+      }
       const { campaign } = await apiFetch<{ campaign: Campaign }>(
         "/api/campaigns",
         {
           method: "POST",
-          body: JSON.stringify({
-            mode: "manual",
-            title: title.trim() || "New campaign",
-            goal_prompt: notes.trim(),
-            create_initial_event: createEvent,
-          }),
+          body: JSON.stringify(payload),
         },
       );
       router.push(`/dashboard/campaigns/${campaign.id}`);
@@ -391,8 +442,10 @@ function ManualCampaignForm({
   return (
     <FormShell
       title="Non-AI campaign"
-      subtitle="No AI calls — you get an empty timeline and can edit the strategy and event pages immediately."
-      submitLabel="Create campaign"
+      subtitle="Build the campaign yourself, or use Suggest strategy for an AI draft of the timeline and event copy — no flyer or voiceover generation."
+      submitLabel={
+        suggestedStrategy ? "Create campaign with suggestion" : "Create campaign"
+      }
       loadingSubmitLabel="Creating…"
       onSubmit={submit}
       loading={loading}
@@ -410,13 +463,31 @@ function ManualCampaignForm({
 
       <Textarea
         id="goal-manual"
-        name="notes"
-        label="Notes (optional)"
+        name="goal"
+        label="Campaign goal"
         leftIcon={<Target className="h-3.5 w-3.5" />}
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Internal context — not required. Shown in the strategy summary for your reference."
+        value={goal}
+        onChange={(e) => {
+          setGoal(e.target.value);
+          if (suggestedStrategy) setSuggestedStrategy(null);
+        }}
+        placeholder="What are you promoting? Used for Suggest strategy and stored on the campaign."
         rows={3}
+        hint="Required for Suggest strategy. You can still create without it for a blank timeline."
+      />
+
+      <SuggestStrategySection
+        audience={audience}
+        eventDate={eventDate}
+        horizonDays={horizonDays}
+        suggesting={suggesting}
+        suggestError={suggestError}
+        suggestedStrategy={suggestedStrategy}
+        onAudienceChange={setAudience}
+        onEventDateChange={setEventDate}
+        onHorizonDaysChange={setHorizonDays}
+        onSuggest={() => void suggestStrategy()}
+        onClear={clearSuggestion}
       />
 
       <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 text-sm">
@@ -437,6 +508,143 @@ function ManualCampaignForm({
         </span>
       </label>
     </FormShell>
+  );
+}
+
+/* ============================================================
+   Suggest strategy (non-AI campaigns)
+   ============================================================ */
+function SuggestStrategySection({
+  audience,
+  eventDate,
+  horizonDays,
+  suggesting,
+  suggestError,
+  suggestedStrategy,
+  onAudienceChange,
+  onEventDateChange,
+  onHorizonDaysChange,
+  onSuggest,
+  onClear,
+}: {
+  audience: string;
+  eventDate: string;
+  horizonDays: number;
+  suggesting: boolean;
+  suggestError: string | null;
+  suggestedStrategy: CampaignStrategy | null;
+  onAudienceChange: (v: string) => void;
+  onEventDateChange: (v: string) => void;
+  onHorizonDaysChange: (n: number) => void;
+  onSuggest: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 p-4 space-y-4">
+      <div className="flex items-start gap-2">
+        <Lightbulb className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-zinc-900">Suggest strategy</p>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            AI drafts your content timeline and event page copy. You still edit
+            everything before publishing — no flyer or voiceover is generated.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField
+          name="suggest_event_date"
+          label="Event date"
+          type="datetime-local"
+          leftIcon={<CalendarIcon className="h-4 w-4" />}
+          value={eventDate}
+          onChange={(e) => onEventDateChange(e.target.value)}
+          hint="Optional — improves scheduling"
+        />
+        <TextField
+          name="suggest_audience"
+          label="Audience"
+          leftIcon={<Users className="h-4 w-4" />}
+          value={audience}
+          onChange={(e) => onAudienceChange(e.target.value)}
+          placeholder="e.g. startup founders"
+          hint="Optional"
+        />
+      </div>
+
+      <TextField
+        name="suggest_horizon_days"
+        label="Timeline length (days)"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={90}
+        value={String(horizonDays)}
+        onChange={(e) => {
+          const n = Number.parseInt(e.target.value, 10);
+          onHorizonDaysChange(
+            Number.isFinite(n) ? Math.min(90, Math.max(1, n)) : 14,
+          );
+        }}
+        hint="Spreads suggested posts across this window (1–90)."
+      />
+
+      {suggestError && (
+        <p className="text-xs font-medium text-red-600">{suggestError}</p>
+      )}
+
+      {suggestedStrategy && (
+        <div className="rounded-lg border border-emerald-200 bg-white p-3 text-sm">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-medium text-zinc-900">Strategy preview</p>
+            <button
+              type="button"
+              onClick={onClear}
+              className="shrink-0 rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+              aria-label="Clear suggestion"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-2 text-zinc-600 line-clamp-3">
+            {suggestedStrategy.summary}
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
+            <li>
+              {suggestedStrategy.timeline.length} timeline post
+              {suggestedStrategy.timeline.length === 1 ? "" : "s"}
+            </li>
+            <li aria-hidden>·</li>
+            <li className="truncate max-w-[14rem]">
+              Event: {suggestedStrategy.event_draft.headline}
+            </li>
+          </ul>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          loading={suggesting}
+          onClick={onSuggest}
+          leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+        >
+          {suggesting
+            ? "Suggesting…"
+            : suggestedStrategy
+              ? "Regenerate suggestion"
+              : "Suggest strategy"}
+        </Button>
+        {suggestedStrategy && (
+          <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+            Use blank strategy instead
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -4,6 +4,7 @@ import {
   isValidTicketHeaderImageRef,
   normalizeTicketHeaderImageUrl,
 } from "@/lib/tickets/header-image-url";
+import { campaignStrategySchema } from "@/lib/validation/strategy";
 
 const formFieldTypes = [
   "text",
@@ -156,6 +157,23 @@ const flexibleDateString = z
   );
 
 /* -------------------- CAMPAIGNS -------------------- */
+export const suggestStrategySchema = z.object({
+  title: z.string().min(1, "title is required"),
+  goal_prompt: z
+    .string()
+    .trim()
+    .min(1, "Describe your goal to suggest a strategy"),
+  strategy_horizon_days: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(90)
+    .optional()
+    .default(14),
+  audience: z.string().nullable().optional(),
+  event_date: flexibleDateString.nullable().optional(),
+});
+
 export const createCampaignSchema = z
   .object({
     user_id: z.string().min(1).optional(),
@@ -175,6 +193,8 @@ export const createCampaignSchema = z
       .default(14),
     /** When `mode === "manual"`, set false to only create the campaign + blank strategy (no event doc). */
     create_initial_event: z.boolean().optional().default(true),
+    /** When `mode === "manual"`, optional AI-suggested strategy from `/api/campaigns/suggest-strategy`. */
+    strategy_json: campaignStrategySchema.optional(),
     audience: z.string().nullable().optional(),
     event_date: flexibleDateString.nullable().optional(),
     flyer_input: z
